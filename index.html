@@ -1410,10 +1410,10 @@ async function processLocationUpload(){
     const uniqSkus=[...new Set(locUploadParsed.map(r=>r.sku))];
     const prodRows=uniqSkus.map(sku=>({sku,name:`SKU: ${sku}`}));
     for(let i=0;i<prodRows.length;i+=CHUNK){await sb.from('products').upsert(prodRows.slice(i,i+CHUNK),{onConflict:'sku',ignoreDuplicates:true});await sleep(10);}
-    let success=0;const logRows=[];
+    let success=0;const logRows=[];const errors=[];
     if(overwrite){
       const stockRows=locUploadParsed.map(r=>{const payload={sku:r.sku,location_code:r.loc,quantity:r.qty};if(r.mfd)payload.mfd_date=r.mfd;if(r.exp)payload.exp_date=r.exp;return payload;});
-      for(let i=0;i<stockRows.length;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const{error}=await sb.from('stock_locations').upsert(chunk,{onConflict:'sku, location_code'});if(!error){chunk.forEach(r=>logRows.push({action_type:'putaway',sku:r.sku,location_code:r.location_code,qty_change:r.quantity,qty_before:0,qty_after:r.quantity,ref_doc:'LOC_UPLOAD'}));success+=chunk.length;}showProg(`บันทึก ${Math.min(i+CHUNK,stockRows.length)}/${total}...`,10+(i/stockRows.length)*80);await sleep(20);}
+      for(let i=0;i<stockRows.length;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const{error}=await sb.from('stock_locations').upsert(chunk,{onConflict:'sku, location_code'});if(!error){chunk.forEach(r=>logRows.push({action_type:'putaway',sku:r.sku,location_code:r.location_code,qty_change:r.quantity,qty_before:0,qty_after:r.quantity,ref_doc:'LOC_UPLOAD'}));success+=chunk.length;}else{errors.push(error.message);}showProg(`บันทึก ${Math.min(i+CHUNK,stockRows.length)}/${total}...`,10+(i/stockRows.length)*80);await sleep(20);}
     }else{
       showProg('ดึงสต็อคเดิม...',10);
       const skuSet=new Set(locUploadParsed.map(r=>r.sku)),locSet=new Set(locUploadParsed.map(r=>r.loc));
@@ -1424,10 +1424,12 @@ async function processLocationUpload(){
         // ✅ FIX 5: carry mfd/exp correctly from r.mfd / r.exp (not r.mfd_date)
         const payload={sku:r.sku,location_code:r.loc,quantity:newQty,_before:before};
         if(r.mfd)payload.mfd_date=r.mfd;if(r.exp)payload.exp_date=r.exp;return payload;});
-      for(let i=0;i<stockRows.length;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const upsertChunk=chunk.map(r=>{const p={sku:r.sku,location_code:r.location_code,quantity:r.quantity};if(r.mfd_date)p.mfd_date=r.mfd_date;if(r.exp_date)p.exp_date=r.exp_date;return p;});const{error}=await sb.from('stock_locations').upsert(upsertChunk,{onConflict:'sku, location_code'});if(!error){chunk.forEach(r=>logRows.push({action_type:'putaway',sku:r.sku,location_code:r.location_code,qty_change:r.quantity-r._before,qty_before:r._before,qty_after:r.quantity,ref_doc:'LOC_UPLOAD'}));success+=chunk.length;}showProg(`บันทึก ${Math.min(i+CHUNK,stockRows.length)}/${total}...`,30+(i/stockRows.length)*60);await sleep(20);}
+      for(let i=0;i<stockRows.length;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const upsertChunk=chunk.map(r=>{const p={sku:r.sku,location_code:r.location_code,quantity:r.quantity};if(r.mfd_date)p.mfd_date=r.mfd_date;if(r.exp_date)p.exp_date=r.exp_date;return p;});const{error}=await sb.from('stock_locations').upsert(upsertChunk,{onConflict:'sku, location_code'});if(!error){chunk.forEach(r=>logRows.push({action_type:'putaway',sku:r.sku,location_code:r.location_code,qty_change:r.quantity-r._before,qty_before:r._before,qty_after:r.quantity,ref_doc:'LOC_UPLOAD'}));success+=chunk.length;}else{errors.push(error.message);}showProg(`บันทึก ${Math.min(i+CHUNK,stockRows.length)}/${total}...`,30+(i/stockRows.length)*60);await sleep(20);}
     }
     const LOG_CHUNK=500;for(let i=0;i<logRows.length;i+=LOG_CHUNK){try{await sb.from('stock_logs').insert(logRows.slice(i,i+LOG_CHUNK));}catch(e){}await sleep(10);}
-    showProg('✅ เสร็จสิ้น!',100);showToast(`✅ Upload สำเร็จ ${success.toLocaleString()} รายการ`,'success',6000);closeLocationUploadModal();loadLocationManager();setTimeout(hideProg,3000);
+    hideProg();
+    if(success>0){showToast(`✅ Upload สำเร็จ ${success.toLocaleString()}/${total} รายการ${errors.length?` — พลาด ${total-success} แถว: ${errors[0]}`:''}`,'success',8000);closeLocationUploadModal();loadLocationManager();}
+    else{showToast(`❌ บันทึกไม่ได้เลยสักแถว: ${errors[0]||'ไม่ทราบสาเหตุ'}`,'error',10000);}
   }catch(err){showToast('ล้มเหลว: '+err.message,'error');}
   finally{setButtonLoading(btn,false,'⬆ อัปโหลด');btn.disabled=locUploadParsed.length===0;}
 }
