@@ -877,7 +877,7 @@ function parseStockReportFile(data,isCsv){
   const subwhKw=['SUBWAREHOUSE NAME','SUBWAREHOUSE','โลเคชั่น'];
   const lotKw=['LOTNUMBER','LOT NUMBER','LOT','BATCH'];
   const costKw=['PRODUCT COST','COST','ต้นทุน'];
-  function findCol(h,kws){return h.findIndex(x=>kws.some(k=>x.includes(k)));}
+  function findCol(h,kws){for(const k of kws){const idx=h.findIndex(x=>x===k);if(idx!==-1)return idx;}for(const k of kws){const idx=h.findIndex(x=>x.includes(k));if(idx!==-1)return idx;}return -1;}
   if(isCsv){
     const raw=data.replace(/^\uFEFF/,'');
     const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
