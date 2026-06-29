@@ -877,22 +877,23 @@ function parseStockReportFile(data,isCsv){
   const subwhKw=['SUBWAREHOUSE NAME','SUBWAREHOUSE','โลเคชั่น'];
   const lotKw=['LOTNUMBER','LOT NUMBER','LOT','BATCH'];
   const costKw=['PRODUCT COST','COST','ต้นทุน'];
+  const catKw=['CATEGORY LV1 NAME','CATEGORY NAME','หมวดหมู่','หมวด','CATEGORY'];
   function findCol(h,kws){for(const k of kws){const idx=h.findIndex(x=>x===k);if(idx!==-1)return idx;}for(const k of kws){const idx=h.findIndex(x=>x.includes(k));if(idx!==-1)return idx;}return -1;}
   if(isCsv){
     const raw=data.replace(/^\uFEFF/,'');
     const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
     if(lines.length<2){showToast('ไฟล์ CSV ไม่มีข้อมูล','warn');return null;}
     const h=splitCsv(lines[0]).map(x=>x.toUpperCase().trim());
-    const si=findCol(h,skuKw),qi=findCol(h,qtyKw),ni=findCol(h,nameKw),bi=findCol(h,branchKw),wi=findCol(h,whKw),swi=findCol(h,subwhKw),li=findCol(h,lotKw),ci=findCol(h,costKw);
+    const si=findCol(h,skuKw),qi=findCol(h,qtyKw),ni=findCol(h,nameKw),bi=findCol(h,branchKw),wi=findCol(h,whKw),swi=findCol(h,subwhKw),li=findCol(h,lotKw),ci=findCol(h,costKw),cati=findCol(h,catKw);
     if(si===-1||qi===-1){showToast('หาคอลัมน์ Product Code + Stockqty ไม่พบ','error');return null;}
-    for(let i=1;i<lines.length;i++){const cols=splitCsv(lines[i]);const sku=String(cols[si]||'').trim().toUpperCase();const qty=Math.round(parseFloat(String(cols[qi]||'0').replace(/,/g,''))||0);if(!sku)continue;rows.push({sku,qty,name:ni>=0?String(cols[ni]||'').trim():'',branch:bi>=0?String(cols[bi]||'').trim():'',warehouse:wi>=0?String(cols[wi]||'').trim():'',subwarehouse:swi>=0?String(cols[swi]||'').trim():'',lotnumber:li>=0?String(cols[li]||'').trim():'',cost:ci>=0?parseFloat(String(cols[ci]||'0').replace(/,/g,''))||0:0});}
+    for(let i=1;i<lines.length;i++){const cols=splitCsv(lines[i]);const sku=String(cols[si]||'').trim().toUpperCase();const qty=Math.round(parseFloat(String(cols[qi]||'0').replace(/,/g,''))||0);if(!sku)continue;rows.push({sku,qty,name:ni>=0?String(cols[ni]||'').trim():'',branch:bi>=0?String(cols[bi]||'').trim():'',warehouse:wi>=0?String(cols[wi]||'').trim():'',subwarehouse:swi>=0?String(cols[swi]||'').trim():'',lotnumber:li>=0?String(cols[li]||'').trim():'',cost:ci>=0?parseFloat(String(cols[ci]||'0').replace(/,/g,''))||0:0,category:cati>=0?String(cols[cati]||'').trim():''});}
   } else {
     const wb=XLSX.read(data,{type:'array',dense:true,cellDates:false,cellNF:false,cellStyles:false});
     const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
-    let hRow=-1,si=-1,qi=-1,ni=-1,bi=-1,wi=-1,swi=-1,li=-1,ci=-1;
-    for(let r=0;r<aoa.length;r++){if(!Array.isArray(aoa[r]))continue;const h=aoa[r].map(x=>String(x).toUpperCase().trim());const tsi=findCol(h,skuKw),tqi=findCol(h,qtyKw);if(tsi!==-1&&tqi!==-1){hRow=r;si=tsi;qi=tqi;ni=findCol(h,nameKw);bi=findCol(h,branchKw);wi=findCol(h,whKw);swi=findCol(h,subwhKw);li=findCol(h,lotKw);ci=findCol(h,costKw);break;}}
+    let hRow=-1,si=-1,qi=-1,ni=-1,bi=-1,wi=-1,swi=-1,li=-1,ci=-1,cati=-1;
+    for(let r=0;r<aoa.length;r++){if(!Array.isArray(aoa[r]))continue;const h=aoa[r].map(x=>String(x).toUpperCase().trim());const tsi=findCol(h,skuKw),tqi=findCol(h,qtyKw);if(tsi!==-1&&tqi!==-1){hRow=r;si=tsi;qi=tqi;ni=findCol(h,nameKw);bi=findCol(h,branchKw);wi=findCol(h,whKw);swi=findCol(h,subwhKw);li=findCol(h,lotKw);ci=findCol(h,costKw);cati=findCol(h,catKw);break;}}
     if(hRow===-1){showToast('หาหัวตาราง ไม่พบ','error');return null;}
-    for(let r=hRow+1;r<aoa.length;r++){if(!aoa[r])continue;const sku=String(aoa[r][si]||'').trim().toUpperCase();const qty=Math.round(parseFloat(String(aoa[r][qi]||'0').replace(/,/g,''))||0);if(!sku)continue;rows.push({sku,qty,name:ni>=0?String(aoa[r][ni]||'').trim():'',branch:bi>=0?String(aoa[r][bi]||'').trim():'',warehouse:wi>=0?String(aoa[r][wi]||'').trim():'',subwarehouse:swi>=0?String(aoa[r][swi]||'').trim():'',lotnumber:li>=0?String(aoa[r][li]||'').trim():'',cost:ci>=0?parseFloat(String(aoa[r][ci]||'0').replace(/,/g,''))||0:0});}
+    for(let r=hRow+1;r<aoa.length;r++){if(!aoa[r])continue;const sku=String(aoa[r][si]||'').trim().toUpperCase();const qty=Math.round(parseFloat(String(aoa[r][qi]||'0').replace(/,/g,''))||0);if(!sku)continue;rows.push({sku,qty,name:ni>=0?String(aoa[r][ni]||'').trim():'',branch:bi>=0?String(aoa[r][bi]||'').trim():'',warehouse:wi>=0?String(aoa[r][wi]||'').trim():'',subwarehouse:swi>=0?String(aoa[r][swi]||'').trim():'',lotnumber:li>=0?String(aoa[r][li]||'').trim():'',cost:ci>=0?parseFloat(String(aoa[r][ci]||'0').replace(/,/g,''))||0:0,category:cati>=0?String(aoa[r][cati]||'').trim():''});}
   }
   return rows.filter(r=>r.sku);
 }
@@ -900,7 +901,7 @@ function parseStockReportFile(data,isCsv){
 let _lastSyncItems=[];
 function parseSyncFile(data,isCsv){
   try{const rows=parseStockReportFile(data,isCsv);if(!rows||!rows.length){showToast('ไม่พบรายการที่ถูกต้อง','warn');return;}
-  const items=rows.map(r=>({sku:r.sku,deductQty:r.qty,name:r.name,warehouse:r.warehouse,subwarehouse:r.subwarehouse,cost:r.cost||0}));
+  const items=rows.map(r=>({sku:r.sku,deductQty:r.qty,name:r.name,warehouse:r.warehouse,subwarehouse:r.subwarehouse,cost:r.cost||0,category:r.category||''}));
   _lastSyncItems=items;showSyncPreview(items);}
   catch(err){showToast('อ่านไฟล์ล้มเหลว: '+err.message,'error');}
 }
@@ -917,7 +918,7 @@ function showSyncPreview(items){
     const totalValue=items.reduce((s,it)=>s+it.deductQty*(it.cost||0),0);
     const avgCost=itemsWithCost.reduce((s,it)=>s+it.cost,0)/itemsWithCost.length;
     sumEl.style.display='';
-    sumEl.textContent=`💰 มีต้นทุน ${itemsWithCost.length}/${items.length} รายการ • มูลค่าสต็อครวมตามไฟล์นี้ ≈ ฿${totalValue.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} • ต้นทุนเฉลี่ย/รายการ ฿${avgCost.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    sumEl.textContent=`💰 มีต้นทุน ${itemsWithCost.length}/${items.length} รายการ • มูลค่าสต็อครวมตามไฟล์นี้ ≈ ฿${totalValue.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} • ต้นทุนเฉลี่ย/รายการ ฿${avgCost.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} • มีหมวดสินค้า ${items.filter(it=>it.category).length}/${items.length} รายการ`;
   }else{
     sumEl.style.display='none';
   }
@@ -944,14 +945,14 @@ async function processSyncDeduction(){
     showProg('เตรียมข้อมูล...',2);await sleep(30);
     const stockRows=[],productRows=[],locRows=[],costRows=[];
     if(skipCompare){
-      for(const it of parsedSyncData){const locCode=(it.subwarehouse||it.warehouse||'STORE').toUpperCase().replace(/\s+/g,'_').slice(0,20);locRows.push({location_code:locCode,area_type:locCode.startsWith('BA')?'Back Area':'Front Area'});productRows.push({sku:it.sku,name:it.name||`สินค้า ${it.sku}`});if(it.cost>0)costRows.push({sku:it.sku,cost:it.cost,name:it.name||`สินค้า ${it.sku}`});stockRows.push({sku:it.sku,location_code:locCode,quantity:it.deductQty});}
+      for(const it of parsedSyncData){const locCode=(it.subwarehouse||it.warehouse||'STORE').toUpperCase().replace(/\s+/g,'_').slice(0,20);locRows.push({location_code:locCode,area_type:locCode.startsWith('BA')?'Back Area':'Front Area'});productRows.push({sku:it.sku,name:it.name||`สินค้า ${it.sku}`});if(it.cost>0||it.category)costRows.push({sku:it.sku,cost:it.cost,name:it.name||`สินค้า ${it.sku}`,category:it.category||null});stockRows.push({sku:it.sku,location_code:locCode,quantity:it.deductQty});}
     }else{
       showProg('ดึงข้อมูลสต็อคเดิม...',5);await sleep(30);
       let all=[];let from=0;
       while(true){const{data,error}=await sb.from('stock_locations').select('sku,location_code,quantity').range(from,from+999);if(error)throw error;if(!data||!data.length)break;all=all.concat(data);if(data.length<1000)break;from+=999;showProg(`ดึงสต็อคเดิม ${all.length} แถว...`,5+Math.min(20,all.length/200));await sleep(15);}
       showProg('คำนวณผลต่าง...',28);await sleep(20);
       const dbMap={};for(const r of all){if(!dbMap[r.sku])dbMap[r.sku]=[];dbMap[r.sku].push(r);}
-      for(const it of parsedSyncData){const locs=dbMap[it.sku]||[];const oldTotal=locs.reduce((s,x)=>s+x.quantity,0);const diff=it.deductQty-oldTotal;productRows.push({sku:it.sku,name:it.name||`สินค้า ${it.sku}`});if(it.cost>0)costRows.push({sku:it.sku,cost:it.cost,name:it.name||`สินค้า ${it.sku}`});if(diff===0)continue;if(locs.length>0){const firstLoc=locs[0];const otherTotal=locs.slice(1).reduce((s,l)=>s+l.quantity,0);stockRows.push({sku:it.sku,location_code:firstLoc.location_code,quantity:Math.max(0,it.deductQty-otherTotal),_diff:diff,_old:oldTotal,_new:it.deductQty});}}
+      for(const it of parsedSyncData){const locs=dbMap[it.sku]||[];const oldTotal=locs.reduce((s,x)=>s+x.quantity,0);const diff=it.deductQty-oldTotal;productRows.push({sku:it.sku,name:it.name||`สินค้า ${it.sku}`});if(it.cost>0||it.category)costRows.push({sku:it.sku,cost:it.cost,name:it.name||`สินค้า ${it.sku}`,category:it.category||null});if(diff===0)continue;if(locs.length>0){const firstLoc=locs[0];const otherTotal=locs.slice(1).reduce((s,l)=>s+l.quantity,0);stockRows.push({sku:it.sku,location_code:firstLoc.location_code,quantity:Math.max(0,it.deductQty-otherTotal),_diff:diff,_old:oldTotal,_new:it.deductQty});}}
     }
     showProg(`เตรียมแล้ว ${stockRows.length} รายการ...`,30);await sleep(30);
     if(skipCompare&&locRows.length){const uniqLocs=[...new Map(locRows.map(l=>[l.location_code,l])).values()];for(let i=0;i<uniqLocs.length;i+=CHUNK){await sb.from('locations').upsert(uniqLocs.slice(i,i+CHUNK),{onConflict:'location_code'});await sleep(15);}}
@@ -962,17 +963,17 @@ async function processSyncDeduction(){
     }
     let costErr=null;
     if(costRows.length){
-      showProg(`อัปเดตต้นทุน${autoPrice?'/ราคาขาย':''} ${costRows.length} SKU...`,29);await sleep(20);
+      showProg(`อัปเดตต้นทุน/หมวด${autoPrice?'/ราคาขาย':''} ${costRows.length} SKU...`,29);await sleep(20);
       // name is included here too (not just sku+cost_price) because Postgres validates NOT NULL on the
       // INSERT clause of "INSERT...ON CONFLICT DO UPDATE" even when the row already exists and will only
-      // be updated - omitting a NOT-NULL column with no default (name) fails every single time
+      // be updated - omitting a NOT-NULL column with no default (name) fails every single time.
+      // Split into two batches (with/without category) so every row within one upsert call has the exact
+      // same set of keys - avoids any ambiguity about how a bulk upsert treats rows missing a key.
       const uniqCosts=[...new Map(costRows.map(c=>[c.sku,c])).values()];
-      for(let i=0;i<uniqCosts.length;i+=CHUNK){
-        const chunk=uniqCosts.slice(i,i+CHUNK).map(c=>{const row={sku:c.sku,name:c.name,cost_price:c.cost};if(autoPrice)row.price=Math.round(c.cost*(1+markupPct/100)*100)/100;return row;});
-        const{error}=await sb.from('products').upsert(chunk,{onConflict:'sku'});
-        if(error&&!costErr)costErr=error.message;
-        await sleep(15);
-      }
+      const withCat=uniqCosts.filter(c=>c.category),noCat=uniqCosts.filter(c=>!c.category);
+      const mkRow=(c,includeCat)=>{const row={sku:c.sku,name:c.name,cost_price:c.cost};if(autoPrice)row.price=Math.round(c.cost*(1+markupPct/100)*100)/100;if(includeCat)row.category=c.category;return row;};
+      for(let i=0;i<withCat.length;i+=CHUNK){const chunk=withCat.slice(i,i+CHUNK).map(c=>mkRow(c,true));const{error}=await sb.from('products').upsert(chunk,{onConflict:'sku'});if(error&&!costErr)costErr=error.message;await sleep(15);}
+      for(let i=0;i<noCat.length;i+=CHUNK){const chunk=noCat.slice(i,i+CHUNK).map(c=>mkRow(c,false));const{error}=await sb.from('products').upsert(chunk,{onConflict:'sku'});if(error&&!costErr)costErr=error.message;await sleep(15);}
     }
     let success=0;const logRows=[];const total=stockRows.length;
     for(let i=0;i<total;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const upsertChunk=chunk.map(r=>({sku:r.sku,location_code:r.location_code,quantity:r.quantity}));const{error}=await sb.from('stock_locations').upsert(upsertChunk,{onConflict:'sku, location_code'});if(!error){success+=chunk.length;chunk.forEach(r=>{logRows.push({action_type:'sync_deduct',sku:r.sku,location_code:r.location_code,qty_change:skipCompare?r.quantity:(r._diff||0),qty_before:skipCompare?0:(r._old||0),qty_after:r.quantity,ref_doc:docRef});});}const pct=30+Math.round(((i+chunk.length)/total)*60);showProg(`บันทึก ${Math.min(i+CHUNK,total).toLocaleString()}/${total.toLocaleString()}...`,pct);await sleep(25);}
