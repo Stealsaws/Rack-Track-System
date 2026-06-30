@@ -247,7 +247,11 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
     <div class="tb-right">
       <span class="online-lbl"><span class="online-dot"></span>Online</span>
       <button class="theme-btn" onclick="toggleTheme()"><span id="themeIcon">🌙</span><span id="themeLabel">Night</span></button>
-      <div class="notif-btn"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg><span class="notif-dot"></span></div>
+      <div class="notif-btn" id="notifBtn" onclick="toggleNotifPanel()"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg><span class="notif-dot" id="notifDot" style="display:none;"></span></div>
+      <div id="notifPanel" style="display:none;position:absolute;top:50px;right:16px;width:320px;max-height:420px;overflow-y:auto;background:var(--surf);border:1.5px solid var(--bdr);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:200;">
+        <div style="padding:12px 14px;border-bottom:1.5px solid var(--bdr);display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:13px;color:var(--t1);">🔔 แจ้งเตือน</span><button onclick="loadNotifications()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;">↻</button></div>
+        <div id="notifPanelList" style="padding:6px;"></div>
+      </div>
       <div class="user-ava" id="userAva">AP</div>
     </div>
   </div>
@@ -641,6 +645,7 @@ async function startApp(){
   const ini=(currentUser.display_name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();document.getElementById('userAva').textContent=ini;
   buildNav();checkConn();
   const tabs=ROLE_TABS[currentUser.role]||[];if(tabs.length)switchTab(tabs[0]);
+  loadNotifications();
 }
 
 function buildNav(){
@@ -1270,6 +1275,37 @@ async function loadDashPicks(){const list=document.getElementById('dashPickList'
 async function loadDashLogs(){const list=document.getElementById('dashLogList');if(!list)return;try{const today=new Date().toISOString().slice(0,10);const{data}=await sb.from('stock_logs').select('*').gte('created_at',today+'T00:00:00').order('created_at',{ascending:false}).limit(8);if(!data?.length){list.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">ยังไม่มีการเปลี่ยนแปลงวันนี้</p>';return;}const tl={putaway:'📥',sync_deduct:'📤',pick_out:'🛒',pick_in:'📦',cycle_count:'🔢'};list.innerHTML=data.map(r=>{const dt=new Date(r.created_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}),cc=r.qty_change>0?'color:var(--gn-t);font-weight:800;':'color:var(--rd-t);font-weight:800;';return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:2px;"><span style="color:var(--t3);width:40px;flex-shrink:0;">${dt}</span><span style="font-family:'Courier New',monospace;color:var(--t2);flex:1;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${tl[r.action_type]||'•'} ${escapeHtml(r.sku)}</span><span style="${cc}">${r.qty_change>0?'+':''}${r.qty_change}</span></div>`;}).join('');}catch(err){list.innerHTML=`<p style="font-size:12px;color:var(--rd-t);text-align:center;padding:12px;">❌ ${escapeHtml(err.message)}</p>`;}}
 async function loadDashExpiry(){const section=document.getElementById('dashExpiryAlert'),list=document.getElementById('dashExpiryList');if(!section||!list)return;try{const d10=new Date();d10.setDate(d10.getDate()+10);const data=(await fetchExpiringStock(d10.toISOString().slice(0,10))).filter(passesExpiryAlert).slice(0,5);if(!data.length){section.style.display='none';return;}section.style.display='';list.innerHTML=data.map(l=>{const d=daysLeft(l.exp_date);return `<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surf);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;" onclick="switchTab('expiry')"><div><p style="font-family:'Courier New',monospace;font-weight:800;color:var(--rd-t);">${escapeHtml(l.sku)}</p><p style="font-size:10px;color:var(--t3);">${escapeHtml(l.location_code)} • ${l.quantity} ชิ้น</p></div><span class="exp-crit" style="font-size:11px;flex-shrink:0;">${d<=0?'หมดแล้ว':`เหลือ ${d}ว`}</span></div>`;}).join('');}catch(err){console.warn('Expiry dash:',err.message);}}
 async function loadDashApprovals(){const section=document.getElementById('dashApprovalSection'),list=document.getElementById('dashApprovalList');if(!section||!list||currentUser.role==='staff'){if(section)section.style.display='none';return;}try{const[cc,md]=await Promise.all([sb.from('cycle_count_sessions').select('session_no,location_code,created_by').eq('status','pending_approval').limit(3),sb.from('markdown_requests').select('sku,action_type,requested_by').eq('status','pending').limit(3)]);const items=[...(cc.data||[]).map(r=>({label:`🔢 Cycle Count: ${r.session_no}`,sub:`📍 ${r.location_code}`,tab:'count'})),...(md.data||[]).map(r=>({label:`📋 Markdown: ${r.sku}`,sub:`โดย ${r.requested_by||'-'}`,tab:'expiry'}))];if(!items.length){section.style.display='none';return;}section.style.display='';list.innerHTML=items.map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surf);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;margin-bottom:4px;" onclick="switchTab('${i.tab}')"><div><p style="font-weight:800;color:var(--t1);">${escapeHtml(i.label)}</p><p style="font-size:10px;color:var(--t3);">${escapeHtml(i.sub)}</p></div><span style="color:var(--am-t);font-weight:800;flex-shrink:0;">รออนุมัติ →</span></div>`).join('');}catch(err){console.warn('Approval dash:',err.message);}}
+// NOTIFICATION BELL — เอกสารที่ต้องทำ/รออนุมัติ
+async function loadNotifications(){
+  const listEl=document.getElementById('notifPanelList'),dot=document.getElementById('notifDot');
+  if(!listEl)return;
+  listEl.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:16px;">⏳...</p>';
+  try{
+    const sections=[];
+    // ใบเบิกที่ต้องจัด — ทุก role เห็น
+    const{data:picks}=await sb.from('pick_orders').select('doc_no,status,created_at').in('status',['pending','picking']).order('created_at',{ascending:false}).limit(10);
+    if(picks?.length)sections.push({title:'📦 ใบเบิกที่ต้องจัด',tab:'pick',items:picks.map(p=>({label:p.doc_no,sub:p.status==='pending'?'รอจัด':'กำลังจัด'}))});
+    // รออนุมัติ — เฉพาะ admin/manager
+    if(currentUser.role!=='staff'){
+      const[cc,md]=await Promise.all([
+        sb.from('cycle_count_sessions').select('session_no,location_code').eq('status','pending_approval').order('created_at',{ascending:false}).limit(10),
+        sb.from('markdown_requests').select('sku,batch_no').eq('status','pending').order('created_at',{ascending:false}).limit(10)
+      ]);
+      if(cc.data?.length)sections.push({title:'🔢 นับสต็อครออนุมัติ',tab:'count',items:cc.data.map(s=>({label:s.session_no,sub:`📍 ${s.location_code}`}))});
+      if(md.data?.length){
+        const mdGroups={};md.data.forEach(r=>{const key=r.batch_no||r.sku;if(!mdGroups[key])mdGroups[key]={label:r.batch_no?`📄 ${r.batch_no}`:r.sku,count:0};mdGroups[key].count++;});
+        sections.push({title:'💰 คำขอลดราคา/ทำลายรออนุมัติ',tab:'expiry',items:Object.values(mdGroups).map(g=>({label:g.label,sub:g.count>1?`${g.count} รายการ`:''}))});
+      }
+    }
+    const totalCount=sections.reduce((s,sec)=>s+sec.items.length,0);
+    if(dot)dot.style.display=totalCount>0?'block':'none';
+    if(!sections.length){listEl.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:16px;">✅ ไม่มีเอกสารที่ต้องทำ</p>';return;}
+    listEl.innerHTML=sections.map(sec=>`<div style="margin-bottom:8px;"><p style="font-size:10px;font-weight:800;color:var(--t3);text-transform:uppercase;padding:6px 8px 4px;">${sec.title} (${sec.items.length})</p>${sec.items.map(it=>`<div onclick="switchTab('${sec.tab}');closeNotifPanel();" style="display:flex;justify-content:space-between;align-items:center;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:12px;" onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background='transparent'"><span style="font-family:'Courier New',monospace;font-weight:700;color:var(--t1);">${escapeHtml(it.label)}</span><span style="font-size:10px;color:var(--t3);">${escapeHtml(it.sub)}</span></div>`).join('')}</div>`).join('');
+  }catch(err){listEl.innerHTML=`<p style="font-size:12px;color:var(--rd-t);text-align:center;padding:16px;">❌ ${escapeHtml(err.message)}</p>`;console.warn('Notifications:',err.message);}
+}
+function toggleNotifPanel(){const panel=document.getElementById('notifPanel');const isOpen=panel.style.display==='block';if(isOpen){closeNotifPanel();}else{panel.style.display='block';loadNotifications();document.addEventListener('click',notifOutsideClickHandler);}}
+function closeNotifPanel(){document.getElementById('notifPanel').style.display='none';document.removeEventListener('click',notifOutsideClickHandler);}
+function notifOutsideClickHandler(e){const panel=document.getElementById('notifPanel'),btn=document.getElementById('notifBtn');if(panel&&!panel.contains(e.target)&&btn&&!btn.contains(e.target))closeNotifPanel();}
 async function loadDashLowStock(){const section=document.getElementById('dashLowStockSection'),list=document.getElementById('dashLowStockList');if(!section||!list)return;try{const{data:minStocks}=await sb.from('min_stock').select('*');if(!minStocks?.length){section.style.display='none';return;}const{data:stocks}=await sb.from('stock_locations').select('sku,quantity');const qtyMap={};(stocks||[]).forEach(s=>{qtyMap[s.sku]=(qtyMap[s.sku]||0)+s.quantity;});const low=minStocks.filter(m=>(qtyMap[m.sku]||0)<m.min_qty).map(m=>({sku:m.sku,current:qtyMap[m.sku]||0,min:m.min_qty,need:m.min_qty-(qtyMap[m.sku]||0)})).sort((a,b)=>b.need-a.need);if(!low.length){section.style.display='none';return;}section.style.display='';list.innerHTML=low.map(l=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surf);border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:4px;"><div><p style="font-family:'Courier New',monospace;font-weight:800;color:var(--t1);">${escapeHtml(l.sku)}</p><p style="font-size:10px;color:var(--t3);">มีอยู่ ${l.current} / Min ${l.min}</p></div><span class="abtn btn-or" style="padding:3px 8px;font-size:10px;cursor:default;">เติม ${l.need}</span></div>`).join('');}catch(err){console.warn('Low stock:',err.message);}}
 // ============================================================
 // OVERVIEW PAGE
