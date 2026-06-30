@@ -1287,8 +1287,8 @@ async function loadNotifications(){
     if(picks?.length)sections.push({title:'📦 ใบเบิกที่ต้องจัด',tab:'pick',items:picks.map(p=>({label:p.doc_no,sub:p.status==='pending'?'รอจัด':'กำลังจัด'}))});
     // ใกล้หมดอายุที่ยังไม่มีคำขอดำเนินการ — ทุก role เห็น (เตือนให้มากดขอลดราคา/ทำลาย)
     try{
-      const d10=new Date();d10.setDate(d10.getDate()+10);
-      const expRows=(await fetchExpiringStock(d10.toISOString().slice(0,10))).filter(passesExpiryAlert);
+      const d30=new Date();d30.setDate(d30.getDate()+30);
+      const expRows=(await fetchExpiringStock(d30.toISOString().slice(0,10))).filter(passesExpiryAlert).sort((a,b)=>daysLeft(a.exp_date)-daysLeft(b.exp_date));
       const{data:pendingMd}=await sb.from('markdown_requests').select('sku,location_code').eq('status','pending');
       const pendingSet=new Set((pendingMd||[]).map(r=>`${r.sku}|${r.location_code}`));
       const needsAction=expRows.filter(r=>!pendingSet.has(`${r.sku}|${r.location_code}`));
