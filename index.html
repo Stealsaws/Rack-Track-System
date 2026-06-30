@@ -1285,6 +1285,15 @@ async function loadNotifications(){
     // ใบเบิกที่ต้องจัด — ทุก role เห็น
     const{data:picks}=await sb.from('pick_orders').select('doc_no,status,created_at').in('status',['pending','picking']).order('created_at',{ascending:false}).limit(10);
     if(picks?.length)sections.push({title:'📦 ใบเบิกที่ต้องจัด',tab:'pick',items:picks.map(p=>({label:p.doc_no,sub:p.status==='pending'?'รอจัด':'กำลังจัด'}))});
+    // ใกล้หมดอายุที่ยังไม่มีคำขอดำเนินการ — ทุก role เห็น (เตือนให้มากดขอลดราคา/ทำลาย)
+    try{
+      const d10=new Date();d10.setDate(d10.getDate()+10);
+      const expRows=(await fetchExpiringStock(d10.toISOString().slice(0,10))).filter(passesExpiryAlert);
+      const{data:pendingMd}=await sb.from('markdown_requests').select('sku,location_code').eq('status','pending');
+      const pendingSet=new Set((pendingMd||[]).map(r=>`${r.sku}|${r.location_code}`));
+      const needsAction=expRows.filter(r=>!pendingSet.has(`${r.sku}|${r.location_code}`));
+      if(needsAction.length)sections.push({title:'⏰ ใกล้หมดอายุ ยังไม่ได้ทำคำขอ',tab:'expiry',items:needsAction.slice(0,10).map(r=>{const d=daysLeft(r.exp_date);return{label:r.sku,sub:d<=0?`หมดแล้ว • ${r.location_code}`:`เหลือ ${d}ว • ${r.location_code}`};})});
+    }catch(e){console.warn('Notif expiry section:',e.message);}
     // รออนุมัติ — เฉพาะ admin/manager
     if(currentUser.role!=='staff'){
       const[cc,md]=await Promise.all([
