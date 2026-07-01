@@ -684,6 +684,17 @@ function isExpiringSoon(d,days=30){if(!d)return false;const diff=(new Date(d)-ne
 function isExpired(d){if(!d)return false;return new Date(d)<new Date();}
 function daysLeft(d){if(!d)return null;return Math.ceil((new Date(d)-new Date())/864e5);}
 function expClass(d){if(!d)return'exp-ok';if(isExpired(d))return'exp-crit';if(isExpiringSoon(d))return'exp-warn';return'exp-ok';}
+// แปลงวันที่จากฟอร์แมตที่พบบ่อยใน Excel/CSV (เช่น 13/1/26, 13-01-2026) ให้เป็น YYYY-MM-DD ที่ Postgres รับได้
+// คืนค่า {value, raw} — value เป็น null ถ้าแปลงไม่ได้ (เก็บ raw ไว้โชว์ error ให้เห็นว่าค่าต้นฉบับคืออะไร)
+function normalizeDateStr(s){
+  if(!s)return{value:null,raw:''};
+  const raw=String(s).trim();
+  if(!raw)return{value:null,raw:''};
+  if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(raw)){const[y,mo,d]=raw.split('-');return{value:`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`,raw};}
+  const m=raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){let[,d,mo,y]=m;if(y.length===2)y='20'+y;const dn=parseInt(d),mon=parseInt(mo);if(dn>=1&&dn<=31&&mon>=1&&mon<=12)return{value:`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`,raw};}
+  return{value:null,raw};
+}
 async function writeStockLog(type,sku,loc,change,before,after,ref=null){try{await sb.from('stock_logs').insert([{action_type:type,sku,location_code:loc,qty_change:change,qty_before:before,qty_after:after,ref_doc:ref}]);}catch(e){console.warn('Log:',e.message);}}
 function splitCsv(line){const res=[];let cur='',inQ=false;for(const ch of line){if(ch==='"'){inQ=!inQ;continue;}if(ch===','&&!inQ){res.push(cur.trim());cur='';continue;}cur+=ch;}res.push(cur.trim());return res;}
 
@@ -1577,12 +1588,13 @@ function parseLocationCSV(text){
   const mi=headers.findIndex(h=>['MFD','วันผลิต','PRODUCTION','MFGDATE'].some(k=>h.includes(k)));
   const ei=headers.findIndex(h=>['EXP','EXPIRY','EXPIRE','EXPDATE','วันหมดอายุ','BEST'].some(k=>h.includes(k)));
   if(si===-1||qi===-1){showToast(`ไม่พบคอลัมน์ที่ต้องการ (SKU:${si} Qty:${qi})`,'error');return;}
-  locUploadParsed=[];
-  for(let i=1;i<lines.length;i++){const cols=splitCsv(lines[i]);const loc=String(cols[li]||'').trim().toUpperCase()||'PENDING';const sku=String(cols[si]||'').trim().toUpperCase();const qty=Math.round(parseFloat(String(cols[qi]||'0').replace(/,/g,''))||0);const mfd=mi>=0?String(cols[mi]||'').trim():'';const exp=ei>=0?String(cols[ei]||'').trim():'';if(!sku)continue;locUploadParsed.push({loc,sku,qty,mfd:mfd||null,exp:exp||null});}
+  locUploadParsed=[];let badDateCount=0;
+  for(let i=1;i<lines.length;i++){const cols=splitCsv(lines[i]);const loc=String(cols[li]||'').trim().toUpperCase()||'PENDING';const sku=String(cols[si]||'').trim().toUpperCase();const qty=Math.round(parseFloat(String(cols[qi]||'0').replace(/,/g,''))||0);const mfdN=mi>=0?normalizeDateStr(cols[mi]):{value:null,raw:''};const expN=ei>=0?normalizeDateStr(cols[ei]):{value:null,raw:''};if(mfdN.raw&&!mfdN.value)badDateCount++;if(expN.raw&&!expN.value)badDateCount++;if(!sku)continue;locUploadParsed.push({loc,sku,qty,mfd:mfdN.value,exp:expN.value,_mfdRaw:mfdN.raw,_expRaw:expN.raw});}
   const tb=document.getElementById('locUploadPreviewBody');
-  tb.innerHTML=locUploadParsed.slice(0,50).map(r=>`<tr><td style="font-family:'Courier New',monospace;font-weight:800;font-size:11px;color:${r.loc==='PENDING'?'var(--am-t)':'var(--t1)'};">${r.loc==='PENDING'?'⏳ PENDING':escapeHtml(r.loc)}</td><td style="font-family:'Courier New',monospace;font-size:11px;color:var(--t2);">${escapeHtml(r.sku)}</td><td style="text-align:right;font-weight:800;color:var(--nv-t);font-size:11px;">${r.qty}</td><td style="font-size:11px;color:var(--t3);">${r.mfd||'-'}</td><td class="${expClass(r.exp)}" style="font-size:11px;">${r.exp||'-'}</td></tr>`).join('');
+  tb.innerHTML=locUploadParsed.slice(0,50).map(r=>{const mfdCell=r._mfdRaw&&!r.mfd?`<span style="color:var(--rd-t);font-weight:800;" title="แปลงวันที่ไม่ได้">⚠️ ${escapeHtml(r._mfdRaw)}</span>`:(r.mfd||'-');const expCellInner=r._expRaw&&!r.exp?`<span style="color:var(--rd-t);font-weight:800;" title="แปลงวันที่ไม่ได้">⚠️ ${escapeHtml(r._expRaw)}</span>`:(r.exp||'-');return `<tr><td style="font-family:'Courier New',monospace;font-weight:800;font-size:11px;color:${r.loc==='PENDING'?'var(--am-t)':'var(--t1)'};">${r.loc==='PENDING'?'⏳ PENDING':escapeHtml(r.loc)}</td><td style="font-family:'Courier New',monospace;font-size:11px;color:var(--t2);">${escapeHtml(r.sku)}</td><td style="text-align:right;font-weight:800;color:var(--nv-t);font-size:11px;">${r.qty}</td><td style="font-size:11px;color:var(--t3);">${mfdCell}</td><td class="${r.exp?expClass(r.exp):''}" style="font-size:11px;">${expCellInner}</td></tr>`;}).join('');
   document.getElementById('locUploadRowCount').textContent=`${locUploadParsed.length} แถว`;
   if(locUploadParsed.length===0)showToast('พบ 0 แถว — ตรวจสอบ header ของ CSV ด้วยครับ','warn');
+  else if(badDateCount>0)showToast(`⚠️ มีวันที่ที่แปลงไม่ได้ ${badDateCount} ค่า (แถบสีแดงในตาราง) — แถวนั้นจะถูกบันทึกโดยไม่มีวันที่นั้นๆ`,'warn',8000);
   document.getElementById('locUploadPreview').style.display='';
   document.getElementById('locUploadConfirmBtn').disabled=locUploadParsed.length===0;
 }
