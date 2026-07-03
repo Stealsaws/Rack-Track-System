@@ -722,7 +722,7 @@ function showScanStaging(sku){const s=document.getElementById('scanStaging');doc
 function cancelStagedScan(){document.getElementById('scanStaging').style.display='none';}
 async function confirmStagedScan(){const sku=document.getElementById('stagingSku').textContent;const qty=parseInt(document.getElementById('stagingQty').value||'1');if(!sku||!qty||qty<=0){showToast('จำนวนไม่ถูกต้อง','warn');return;}document.getElementById('scanStaging').style.display='none';await processProductWithQty(sku,qty);}
 function stageManualEntry(){const sku=document.getElementById('skuInput').value.trim().toUpperCase();if(!sku)return;document.getElementById('skuInput').value='';showScanStaging(sku);}
-async function processProductWithQty(sku,qty){if(!currentLocation){showToast('ระบุโลเคชั่นก่อนครับ','warn');return;}if(isSaving)return;isSaving=true;const btn=document.getElementById('saveSkuBtn');setButtonLoading(btn,true,'...');try{await upsertProductSafe(sku);const{data:ex}=await sb.from('stock_locations').select('quantity').eq('sku',sku).eq('location_code',currentLocation).maybeSingle();const before=ex?.quantity??0,total=before+qty;const mfd=document.getElementById('mfdInput').value||null,exp=document.getElementById('expInput').value||null;const payload={sku,location_code:currentLocation,quantity:total};if(mfd)payload.mfd_date=mfd;if(exp)payload.exp_date=exp;const{error}=await sb.from('stock_locations').upsert([payload],{onConflict:'sku, location_code'});if(error)throw error;await writeStockLog('putaway',sku,currentLocation,qty,before,total);const skuEl=document.getElementById('skuInput');skuEl.classList.add('scan-flash');skuEl.addEventListener('animationend',()=>skuEl.classList.remove('scan-flash'),{once:true});await loadItemsInLocation();showToast(`บันทึก ${sku} ×${qty} แล้ว`,'success',1800);}catch(err){showToast('ล้มเหลว: '+err.message,'error');}finally{setButtonLoading(btn,false,'ถัดไป');isSaving=false;}}
+async function processProductWithQty(sku,qty){if(!currentLocation){showToast('ระบุโลเคชั่นก่อนครับ','warn');return;}if(isSaving)return;isSaving=true;const btn=document.getElementById('saveSkuBtn');setButtonLoading(btn,true,'...');try{await upsertProductSafe(sku);const mfd=document.getElementById('mfdInput').value||null,exp=document.getElementById('expInput').value||null;let exQ=sb.from('stock_locations').select('quantity').eq('sku',sku).eq('location_code',currentLocation);exQ=exp?exQ.eq('exp_date',exp):exQ.is('exp_date',null);const{data:ex}=await exQ.maybeSingle();const before=ex?.quantity??0,total=before+qty;const payload={sku,location_code:currentLocation,quantity:total};if(mfd)payload.mfd_date=mfd;if(exp)payload.exp_date=exp;const{error}=await sb.from('stock_locations').upsert([payload],{onConflict:'sku, location_code, exp_date'});if(error)throw error;await writeStockLog('putaway',sku,currentLocation,qty,before,total);const skuEl=document.getElementById('skuInput');skuEl.classList.add('scan-flash');skuEl.addEventListener('animationend',()=>skuEl.classList.remove('scan-flash'),{once:true});await loadItemsInLocation();showToast(`บันทึก ${sku} ×${qty}${exp?` (EXP ${exp})`:''}  แล้ว`,'success',1800);}catch(err){showToast('ล้มเหลว: '+err.message,'error');}finally{setButtonLoading(btn,false,'ถัดไป');isSaving=false;}}
 async function loadItemsInLocation(){if(!currentLocation)return;const{data,error}=await sb.from('stock_locations').select('sku,quantity,mfd_date,exp_date,products(name)').eq('location_code',currentLocation).order('created_at',{ascending:false});const list=document.getElementById('itemList'),counter=document.getElementById('itemCount');list.innerHTML='';if(error||!data||!data.length){list.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:20px;border:1.5px dashed var(--bdr);border-radius:8px;">ยังไม่มีสินค้า</p>';counter.textContent='';return;}counter.textContent=`${data.length} รายการ`;data.forEach(it=>{const div=document.createElement('div');div.style.cssText='display:flex;justify-content:space-between;align-items:center;background:var(--surf2);padding:8px 12px;border-radius:10px;border:1px solid var(--bdr);font-size:12px;margin-bottom:6px;';const eb=it.exp_date?`<span class="${expClass(it.exp_date)}" style="margin-left:4px;">EXP:${it.exp_date}</span>`:'';div.innerHTML=`<div><p style="font-weight:800;color:var(--t1);">${escapeHtml(it.products?.name||it.sku)}</p><p style="font-size:10px;color:var(--t3);font-family:'Courier New',monospace;">SKU: ${escapeHtml(it.sku)}${eb}</p></div><span style="background:var(--gn);color:#fff;font-weight:800;padding:4px 10px;border-radius:7px;">${it.quantity}</span>`;list.appendChild(div);});}
 
 // ✅ FIX 11: PICK ORDERS — no window.prompt, use inline staging
@@ -873,7 +873,7 @@ async function confirmReceive(){
       await upsertProductSafe(it.sku);  // ✅ FIX 4
       const{data:ex}=await sb.from('stock_locations').select('quantity').eq('sku',it.sku).eq('location_code',destLoc).maybeSingle();
       const before=ex?.quantity??0,after=before+qty;
-      await sb.from('stock_locations').upsert([{sku:it.sku,location_code:destLoc,quantity:after}],{onConflict:'sku, location_code'});
+      await sb.from('stock_locations').upsert([{sku:it.sku,location_code:destLoc,quantity:after}],{onConflict:'sku, location_code, exp_date'});
       await writeStockLog('pick_in',it.sku,destLoc,qty,before,after,currentReceiveDoc);
     }
     await sb.from('pick_orders').update({status:'received',received_at:new Date().toISOString(),dest_location:destLoc}).eq('doc_no',currentReceiveDoc);
@@ -990,11 +990,7 @@ async function processSyncDeduction(){
     }
     showProg(`เตรียมแล้ว ${stockRows.length} รายการ...`,30);await sleep(30);
     if(skipCompare&&locRows.length){const uniqLocs=[...new Map(locRows.map(l=>[l.location_code,l])).values()];for(let i=0;i<uniqLocs.length;i+=CHUNK){await sb.from('locations').upsert(uniqLocs.slice(i,i+CHUNK),{onConflict:'location_code'});await sleep(15);}}
-    if(productRows.length){
-      // ✅ FIX 4: only upsert new products (ignoreDuplicates) - protects existing product names from being overwritten
-      const uniqProds=[...new Map(productRows.map(p=>[p.sku,p])).values()];
-      for(let i=0;i<uniqProds.length;i+=CHUNK){await sb.from('products').upsert(uniqProds.slice(i,i+CHUNK),{onConflict:'sku',ignoreDuplicates:true});await sleep(15);}
-    }
+    if(productRows.length){const uniqProds=[...new Map(productRows.map(p=>[p.sku,p])).values()];for(let i=0;i<uniqProds.length;i+=CHUNK){await sb.from('products').upsert(uniqProds.slice(i,i+CHUNK),{onConflict:'sku',ignoreDuplicates:true});await sleep(15);}}
     let costErr=null;
     if(costRows.length){
       showProg(`อัปเดตต้นทุน/หมวด${autoPrice?'/ราคาขาย':''} ${costRows.length} SKU...`,29);await sleep(20);
@@ -1010,7 +1006,7 @@ async function processSyncDeduction(){
       for(let i=0;i<noCat.length;i+=CHUNK){const chunk=noCat.slice(i,i+CHUNK).map(c=>mkRow(c,false));const{error}=await sb.from('products').upsert(chunk,{onConflict:'sku'});if(error&&!costErr)costErr=error.message;await sleep(15);}
     }
     let success=0;const logRows=[];const total=stockRows.length;
-    for(let i=0;i<total;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const upsertChunk=chunk.map(r=>({sku:r.sku,location_code:r.location_code,quantity:r.quantity}));const{error}=await sb.from('stock_locations').upsert(upsertChunk,{onConflict:'sku, location_code'});if(!error){success+=chunk.length;chunk.forEach(r=>{logRows.push({action_type:'sync_deduct',sku:r.sku,location_code:r.location_code,qty_change:skipCompare?r.quantity:(r._diff||0),qty_before:skipCompare?0:(r._old||0),qty_after:r.quantity,ref_doc:docRef});});}const pct=30+Math.round(((i+chunk.length)/total)*60);showProg(`บันทึก ${Math.min(i+CHUNK,total).toLocaleString()}/${total.toLocaleString()}...`,pct);await sleep(25);}
+    for(let i=0;i<total;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const upsertChunk=chunk.map(r=>({sku:r.sku,location_code:r.location_code,quantity:r.quantity}));const{error}=await sb.from('stock_locations').upsert(upsertChunk,{onConflict:'sku, location_code, exp_date'});if(!error){success+=chunk.length;chunk.forEach(r=>{logRows.push({action_type:'sync_deduct',sku:r.sku,location_code:r.location_code,qty_change:skipCompare?r.quantity:(r._diff||0),qty_before:skipCompare?0:(r._old||0),qty_after:r.quantity,ref_doc:docRef});});}const pct=30+Math.round(((i+chunk.length)/total)*60);showProg(`บันทึก ${Math.min(i+CHUNK,total).toLocaleString()}/${total.toLocaleString()}...`,pct);await sleep(25);}
     showProg('บันทึก Log...',92);await sleep(20);
     const LOG_CHUNK=500;for(let i=0;i<logRows.length;i+=LOG_CHUNK){try{await sb.from('stock_logs').insert(logRows.slice(i,i+LOG_CHUNK));}catch(e){console.warn('log err:',e.message);}await sleep(10);}
     showProg('✅ เสร็จสิ้น!',100);
@@ -1142,7 +1138,7 @@ async function removeCountItem(id){await sb.from('cycle_count_items').delete().e
 async function submitCountForApproval(){if(!countItems.length){showToast('ยังไม่มีรายการที่นับครับ','warn');return;}const ok=await showConfirm('ส่งให้หัวหน้าอนุมัติ?','รายการจะถูกล็อก ไม่สามารถแก้ไขได้');if(!ok)return;await sb.from('cycle_count_sessions').update({status:'pending_approval'}).eq('session_no',currentCountSession.session_no);showToast('ส่งอนุมัติแล้ว','success');closeCountingModal();filterCountSessions('pending_approval');}
 async function openApproveModal(sessionNo){document.getElementById('approveSessionNo').textContent=sessionNo;document.getElementById('approveCountBody').innerHTML='<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--nv-t);">⏳...</td></tr>';document.getElementById('approveCountModal').classList.add('show');const{data}=await sb.from('cycle_count_items').select('*').eq('session_no',sessionNo).order('sku');const items=data||[];const increased=items.filter(i=>i.diff>0).length,decreased=items.filter(i=>i.diff<0).length,same=items.filter(i=>i.diff===0).length;document.getElementById('approveSummary').innerHTML=`รวม ${items.length} รายการ — <span style="color:var(--gn-t);font-weight:800;">เพิ่ม ${increased}</span> | <span style="color:var(--rd-t);font-weight:800;">ลด ${decreased}</span> | <span style="color:var(--t3);">ไม่เปลี่ยน ${same}</span>`;document.getElementById('approveCountBody').innerHTML=items.map(it=>{const diff=it.diff??(it.counted_qty-it.system_qty);const dc=diff===0?'color:var(--t3);':diff>0?'color:var(--gn-t);font-weight:800;':'color:var(--rd-t);font-weight:800;';return `<tr><td style="font-family:'Courier New',monospace;font-weight:800;color:var(--t1);">${escapeHtml(it.sku)}</td><td style="text-align:right;color:var(--t3);">${it.system_qty}</td><td style="text-align:right;font-weight:800;color:var(--t2);">${it.counted_qty}</td><td style="text-align:right;${dc}">${diff>0?'+':''}${diff}</td></tr>`;}).join('');document.getElementById('approveCountBtn').setAttribute('data-session',sessionNo);}
 function closeApproveModal(){document.getElementById('approveCountModal').classList.remove('show');}
-async function approveCount(){const sessionNo=document.getElementById('approveCountBtn').getAttribute('data-session');const ok=await showConfirm('ยืนยันอนุมัติ?','ระบบจะอัปเดตสต็อคทันที ไม่สามารถย้อนกลับได้','var(--gn)');if(!ok)return;const btn=document.getElementById('approveCountBtn');setButtonLoading(btn,true,'⏳...');try{const{data:items}=await sb.from('cycle_count_items').select('*').eq('session_no',sessionNo);const{data:session}=await sb.from('cycle_count_sessions').select('location_code').eq('session_no',sessionNo).maybeSingle();const loc=session?.location_code;for(const it of(items||[])){const diff=it.diff??(it.counted_qty-it.system_qty);if(diff===0)continue;const{error}=await sb.from('stock_locations').upsert([{sku:it.sku,location_code:loc,quantity:it.counted_qty}],{onConflict:'sku, location_code'});if(!error)await writeStockLog('cycle_count',it.sku,loc,diff,it.system_qty,it.counted_qty,sessionNo);}await sb.from('cycle_count_sessions').update({status:'approved',approved_by:currentUser.display_name,approved_at:new Date().toISOString()}).eq('session_no',sessionNo);showToast('อนุมัติและปรับยอดสต็อคเรียบร้อยแล้ว','success',4000);closeApproveModal();filterCountSessions('approved');}catch(err){showToast('ล้มเหลว: '+err.message,'error');}finally{setButtonLoading(btn,false,'✅ อนุมัติ & ปรับยอด');}}
+async function approveCount(){const sessionNo=document.getElementById('approveCountBtn').getAttribute('data-session');const ok=await showConfirm('ยืนยันอนุมัติ?','ระบบจะอัปเดตสต็อคทันที ไม่สามารถย้อนกลับได้','var(--gn)');if(!ok)return;const btn=document.getElementById('approveCountBtn');setButtonLoading(btn,true,'⏳...');try{const{data:items}=await sb.from('cycle_count_items').select('*').eq('session_no',sessionNo);const{data:session}=await sb.from('cycle_count_sessions').select('location_code').eq('session_no',sessionNo).maybeSingle();const loc=session?.location_code;for(const it of(items||[])){const diff=it.diff??(it.counted_qty-it.system_qty);if(diff===0)continue;const{error}=await sb.from('stock_locations').upsert([{sku:it.sku,location_code:loc,quantity:it.counted_qty}],{onConflict:'sku, location_code, exp_date'});if(!error)await writeStockLog('cycle_count',it.sku,loc,diff,it.system_qty,it.counted_qty,sessionNo);}await sb.from('cycle_count_sessions').update({status:'approved',approved_by:currentUser.display_name,approved_at:new Date().toISOString()}).eq('session_no',sessionNo);showToast('อนุมัติและปรับยอดสต็อคเรียบร้อยแล้ว','success',4000);closeApproveModal();filterCountSessions('approved');}catch(err){showToast('ล้มเหลว: '+err.message,'error');}finally{setButtonLoading(btn,false,'✅ อนุมัติ & ปรับยอด');}}
 // BRANCH MANAGER
 async function loadBranches(){const tb=document.getElementById('branchTableBody');tb.innerHTML='<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--t3);">⏳...</td></tr>';try{const{data,error}=await sb.from('branches').select('*').order('branch_code');if(error)throw error;if(!data?.length){tb.innerHTML='<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--t3);">ยังไม่มีสาขา</td></tr>';return;}tb.innerHTML=data.map(b=>`<tr><td style="font-family:'Courier New',monospace;font-weight:800;color:var(--t1);">${escapeHtml(b.branch_code)}</td><td style="color:var(--t2);">${escapeHtml(b.branch_name)}</td><td style="text-align:center;font-weight:800;color:${b.is_active?'var(--gn-t)':'var(--t3)'};">${b.is_active?'✅ ใช้งาน':'⛔ ปิด'}</td><td style="text-align:center;"><button onclick="toggleBranch('${b.branch_code}',${b.is_active})" class="abtn ${b.is_active?'btn-rd':'btn-gn'}" style="padding:3px 8px;font-size:10px;">${b.is_active?'ปิด':'เปิด'}</button></td></tr>`).join('');const opts='<option value="">ทุกสาขา</option>'+data.map(b=>`<option value="${escapeHtml(b.branch_code)}">${escapeHtml(b.branch_code)} - ${escapeHtml(b.branch_name)}</option>`).join('');['replenBranch','eodBranch'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});}catch(err){tb.innerHTML=`<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--rd-t);">❌ ${escapeHtml(err.message)}</td></tr>`;}}
 function openAddBranchModal(){document.getElementById('branchModalTitle').textContent='+ เพิ่มสาขา';document.getElementById('branchModalCode').value='';document.getElementById('branchModalCode').disabled=false;document.getElementById('branchModalName').value='';document.getElementById('branchModal').classList.add('show');setTimeout(()=>document.getElementById('branchModalCode').focus(),50);}
@@ -1349,7 +1345,7 @@ async function loadDashLowStock(){const section=document.getElementById('dashLow
 // ============================================================
 // OVERVIEW PAGE
 // ============================================================
-let ovAllData=[],ovFiltered=[],ovChartInstance=null;
+let ovAllData=[],ovFiltered=[],ovRawDataForExport=[],ovChartInstance=null;
 async function loadOverview(){
   const btn=document.getElementById('overviewRefreshBtn'),tb=document.getElementById('ovTableBody');
   setButtonLoading(btn,true,'⏳...');
@@ -1361,7 +1357,12 @@ async function loadOverview(){
     let all=[],from=0;
     while(true){const{data,error}=await sb.from('stock_locations').select('sku,location_code,quantity,exp_date,mfd_date,products(name,cost_price,price,category)').range(from,from+999);if(error)throw error;if(!data||!data.length)break;all=all.concat(data);if(data.length<1000)break;from+=1000;showOvProg(`ดึงข้อมูล ${all.length} แถว...`,10+Math.min(40,Math.round(all.length/50)));await new Promise(r=>requestAnimationFrame(r));}
     showOvProg('ประมวลผล...',60);await new Promise(r=>requestAnimationFrame(r));
-    ovAllData=all.map(r=>({sku:r.sku,name:r.products?.name||'',category:r.products?.category||'',cost:r.products?.cost_price||0,price:r.products?.price||0,location_code:r.location_code,quantity:r.quantity||0,exp_date:r.exp_date||null,mfd_date:r.mfd_date||null}));
+    const rawData=all.map(r=>({sku:r.sku,name:r.products?.name||'',category:r.products?.category||'',cost:r.products?.cost_price||0,price:r.products?.price||0,location_code:r.location_code,quantity:r.quantity||0,exp_date:r.exp_date||null,mfd_date:r.mfd_date||null}));
+    // aggregate: สรุปยอดรวมต่อ sku+location สำหรับแสดงในตาราง (หลายล็อตรวมเป็นแถวเดียว)
+    const aggMap={};rawData.forEach(r=>{const k=`${r.sku}||${r.location_code}`;if(!aggMap[k]){aggMap[k]={...r};}else{aggMap[k].quantity+=r.quantity;if(r.exp_date&&(!aggMap[k].exp_date||r.exp_date<aggMap[k].exp_date))aggMap[k].exp_date=r.exp_date;}});
+    ovAllData=Object.values(aggMap);
+    // เก็บ rawData ไว้สำหรับ Export (แสดงทุกล็อตแยกกัน)
+    ovRawDataForExport=rawData;
     const skuSet=new Set(ovAllData.map(r=>r.sku)),locSet=new Set(ovAllData.map(r=>r.location_code));
     const totalQty=ovAllData.reduce((s,r)=>s+r.quantity,0),zeroCount=ovAllData.filter(r=>r.quantity===0).length;
     document.getElementById('ovSkuCount').textContent=skuSet.size.toLocaleString();
@@ -1428,7 +1429,7 @@ function renderOverviewTable(){
     return `<tr><td><p style="font-family:'Courier New',monospace;font-weight:800;color:var(--t1);font-size:11px;">${escapeHtml(r.sku)}</p>${r.name?`<p style="font-size:10px;color:var(--t3);">${escapeHtml(r.name.slice(0,40))}</p>`:''}</td><td style="color:var(--t2);">${escapeHtml(r.location_code)}</td><td style="text-align:right;"><span class="pill ${qBadge}">${r.quantity.toLocaleString()}</span></td><td>${expHtml}</td><td style="text-align:center;">${statusPill}</td></tr>`;
   }).join('');
 }
-function exportOverviewCSV(){if(!ovFiltered.length){showToast('ไม่มีข้อมูล','warn');return;}const esc=v=>typeof v==='string'?`"${v.replace(/"/g,'""')}"`:v??'';const header='SKU,ชื่อสินค้า,หมวดสินค้า,โลเคชั่น,สต็อค,วันผลิต,วันหมดอายุ,ต้นทุน/หน่วย,ราคาขาย/หน่วย,มูลค่าต้นทุนรวม,มูลค่าขายรวม';const rows=ovFiltered.map(r=>[esc(r.sku),esc(r.name),esc(r.category),esc(r.location_code),r.quantity,esc(r.mfd_date),esc(r.exp_date),r.cost||'',r.price||'',r.cost?r.quantity*r.cost:'',r.price?r.quantity*r.price:''].join(','));const csv=[header,...rows].join('\n');const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`stock_overview_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);showToast(`⬇ Export ${ovFiltered.length.toLocaleString()} รายการแล้ว`,'success');}
+function exportOverviewCSV(){const rows=ovRawDataForExport||ovFiltered;if(!rows.length){showToast('ไม่มีข้อมูล','warn');return;}const esc=v=>typeof v==='string'?`"${v.replace(/"/g,'""')}"`:v??'';const header='SKU,ชื่อสินค้า,หมวดสินค้า,โลเคชั่น,สต็อค,วันผลิต,วันหมดอายุ,ต้นทุน/หน่วย,ราคาขาย/หน่วย,มูลค่าต้นทุนรวม,มูลค่าขายรวม';const csvRows=rows.map(r=>[esc(r.sku),esc(r.name),esc(r.category),esc(r.location_code),r.quantity,esc(r.mfd_date),esc(r.exp_date),r.cost||'',r.price||'',r.cost?r.quantity*r.cost:'',r.price?r.quantity*r.price:''].join(','));const csv=[header,...csvRows].join('\n');const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`stock_overview_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);showToast(`⬇ Export ${rows.length.toLocaleString()} แถว (รายล็อต) แล้ว`,'success');}
 // ============================================================
 // LOCATION MANAGER
 // ============================================================
@@ -1506,7 +1507,7 @@ async function saveLocation(){
       const before=ex?.quantity??0,newQty=before+qty;
       const payload={sku,location_code:code,quantity:newQty};
       if(mfd)payload.mfd_date=mfd;if(exp)payload.exp_date=exp;
-      await sb.from('stock_locations').upsert([payload],{onConflict:'sku, location_code'});
+      await sb.from('stock_locations').upsert([payload],{onConflict:'sku, location_code, exp_date'});
       await writeStockLog('putaway',sku,code,qty,before,newQty);
     }
     showToast(`${currentEditLocCode?'อัปเดต':'เพิ่ม'} โลเคชั่น ${code} แล้ว`,'success');
@@ -1541,19 +1542,27 @@ function closeLocationDetailModal(){document.getElementById('locationDetailModal
 async function loadLocationDetailStock(code){
   const list=document.getElementById('locDetailStockList');
   list.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">⏳...</p>';
-  const{data,error}=await sb.from('stock_locations').select('sku,quantity,mfd_date,exp_date,products(name)').eq('location_code',code).order('sku');
+  const{data,error}=await sb.from('stock_locations').select('id,sku,quantity,mfd_date,exp_date,products(name)').eq('location_code',code).order('sku').order('exp_date',{ascending:true,nullsFirst:false});
   if(error||!data?.length){list.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">ยังไม่มีสินค้าในโลเคชั่นนี้</p>';return;}
-  list.innerHTML=data.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surf2);border-radius:10px;padding:8px 12px;border:1px solid var(--bdr);font-size:12px;margin-bottom:4px;">
-    <div><p style="font-family:'Courier New',monospace;font-weight:800;color:var(--t1);">${escapeHtml(s.sku)}</p>
-    <p style="font-size:10px;color:var(--t3);">${escapeHtml(s.products?.name||'')}${s.mfd_date?` • MFD:${s.mfd_date}`:''} ${s.exp_date?`• EXP:<span class="${expClass(s.exp_date)}">${s.exp_date}</span>`:''}</p></div>
-    <div style="display:flex;align-items:center;gap:8px;"><span style="background:var(--gn);color:#fff;font-weight:800;padding:4px 10px;border-radius:7px;">${s.quantity}</span>
-    <button onclick="openEditStockExpModal('${escapeHtml(s.sku)}','${escapeHtml(code)}','${s.mfd_date||''}','${s.exp_date||''}',${s.quantity})" style="background:none;border:none;color:var(--nv-t);cursor:pointer;font-weight:900;font-size:14px;">✏️</button>
-    <button onclick="deleteStockFromLocation('${escapeHtml(s.sku)}','${escapeHtml(code)}')" style="background:none;border:none;color:var(--rd-t);cursor:pointer;font-weight:900;font-size:16px;">✕</button></div>
-  </div>`).join('');
+  // group rows by sku for sub-header display
+  const grouped={};data.forEach(s=>{if(!grouped[s.sku])grouped[s.sku]=[];grouped[s.sku].push(s);});
+  list.innerHTML=Object.entries(grouped).map(([sku,rows])=>{
+    const totalQty=rows.reduce((s,r)=>s+r.quantity,0);
+    const isMultiLot=rows.length>1;
+    return rows.map((s,i)=>`<div style="background:var(--surf2);border-radius:10px;padding:8px 12px;border:${isMultiLot&&i===0?'2px solid var(--or)':'1px solid var(--bdr)'};font-size:12px;margin-bottom:4px;">
+      ${isMultiLot&&i===0?`<p style="font-size:9px;font-weight:800;color:var(--or);margin-bottom:4px;">📦 ${escapeHtml(sku)} — รวม ${totalQty} ชิ้น (${rows.length} ล็อต)</p>`:''}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div><p style="font-family:'Courier New',monospace;font-weight:800;color:var(--t1);font-size:11px;">${isMultiLot?`ล็อต ${i+1}`:escapeHtml(s.sku)}</p>
+        <p style="font-size:10px;color:var(--t3);">${isMultiLot?'':escapeHtml(s.products?.name||'')}${s.mfd_date?` MFD:${s.mfd_date}`:''}${s.exp_date?` EXP:<span class="${expClass(s.exp_date)}">${s.exp_date}</span>`:' (ไม่มีวันหมดอายุ)'}</p></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="background:var(--gn);color:#fff;font-weight:800;padding:4px 10px;border-radius:7px;">${s.quantity}</span>
+        <button onclick="openEditStockExpModal('${s.id}','${escapeHtml(s.sku)}','${escapeHtml(code)}','${s.mfd_date||''}','${s.exp_date||''}',${s.quantity})" style="background:none;border:none;color:var(--nv-t);cursor:pointer;font-size:14px;">✏️</button>
+        <button onclick="deleteStockRow('${s.id}','${escapeHtml(s.sku)}','${escapeHtml(code)}')" style="background:none;border:none;color:var(--rd-t);cursor:pointer;font-size:16px;">✕</button></div>
+      </div></div>`).join('');
+  }).join('');
 }
-function openEditStockExpModal(sku,locCode,mfd,exp,qty){editExpiryTarget={lotId:null,sku,locCode};document.getElementById('editStockExpInfo').textContent=`${sku} @ ${locCode} (${qty} ชิ้น)`;document.getElementById('editStockExpMfd').value=mfd||'';document.getElementById('editStockExpExp').value=exp||'';document.getElementById('editStockExpModal').classList.add('show');}
+function openEditStockExpModal(rowId,sku,locCode,mfd,exp,qty){editExpiryTarget={rowId,lotId:null,sku,locCode};document.getElementById('editStockExpInfo').textContent=`${sku} @ ${locCode} (${qty} ชิ้น)`;document.getElementById('editStockExpMfd').value=mfd||'';document.getElementById('editStockExpExp').value=exp||'';document.getElementById('editStockExpModal').classList.add('show');}
 function closeEditStockExpModal(){document.getElementById('editStockExpModal').classList.remove('show');editExpiryTarget=null;}
-async function saveEditStockExp(){if(!editExpiryTarget)return;const mfd=document.getElementById('editStockExpMfd').value||null,exp=document.getElementById('editStockExpExp').value||null;const btn=document.getElementById('editStockExpSaveBtn');setButtonLoading(btn,true,'⏳...');try{let error;if(editExpiryTarget.lotId){({error}=await sb.from('stock_lots').update({mfd_date:mfd,exp_date:exp}).eq('id',editExpiryTarget.lotId));}else{({error}=await sb.from('stock_locations').update({mfd_date:mfd,exp_date:exp}).eq('sku',editExpiryTarget.sku).eq('location_code',editExpiryTarget.locCode));}if(error)throw error;showToast('แก้ไขวันที่แล้ว','success');closeEditStockExpModal();if(currentDetailLoc)await loadLocationDetailStock(currentDetailLoc);if(currentTab==='expiry')await loadExpiryAlert();if(currentTab==='lots')await loadLots();}catch(err){showToast('ล้มเหลว: '+err.message,'error');}finally{setButtonLoading(btn,false,'บันทึก');}}
+async function saveEditStockExp(){if(!editExpiryTarget)return;const mfd=document.getElementById('editStockExpMfd').value||null,exp=document.getElementById('editStockExpExp').value||null;const btn=document.getElementById('editStockExpSaveBtn');setButtonLoading(btn,true,'⏳...');try{let error;if(editExpiryTarget.lotId){({error}=await sb.from('stock_lots').update({mfd_date:mfd,exp_date:exp}).eq('id',editExpiryTarget.lotId));}else if(editExpiryTarget.rowId){({error}=await sb.from('stock_locations').update({mfd_date:mfd,exp_date:exp}).eq('id',editExpiryTarget.rowId));}else{({error}=await sb.from('stock_locations').update({mfd_date:mfd,exp_date:exp}).eq('sku',editExpiryTarget.sku).eq('location_code',editExpiryTarget.locCode));}if(error)throw error;showToast('แก้ไขวันที่แล้ว','success');closeEditStockExpModal();if(currentDetailLoc)await loadLocationDetailStock(currentDetailLoc);if(currentTab==='expiry')await loadExpiryAlert();if(currentTab==='lots')await loadLots();}catch(err){showToast('ล้มเหลว: '+err.message,'error');}finally{setButtonLoading(btn,false,'บันทึก');}}
 
 async function addStockToLocation(){
   const sku=document.getElementById('locDetailSku').value.trim().toUpperCase();
@@ -1562,24 +1571,34 @@ async function addStockToLocation(){
   const exp=document.getElementById('locDetailExp').value||null;
   if(!sku||!qty||qty<=0){showToast('ระบุ SKU และจำนวนครับ','warn');return;}
   try{
-    await upsertProductSafe(sku); // ✅ FIX 4
-    const{data:ex}=await sb.from('stock_locations').select('quantity').eq('sku',sku).eq('location_code',currentDetailLoc).maybeSingle();
+    await upsertProductSafe(sku);
+    // ✅ ค้นหาแถวที่ตรงกับ sku+location+exp_date เดียวกัน (ถ้ามีให้บวกจำนวน ไม่มีให้สร้างใหม่)
+    let q=sb.from('stock_locations').select('id,quantity').eq('sku',sku).eq('location_code',currentDetailLoc);
+    q=exp?q.eq('exp_date',exp):q.is('exp_date',null);
+    const{data:ex}=await q.maybeSingle();
     const before=ex?.quantity??0,newQty=before+qty;
     const payload={sku,location_code:currentDetailLoc,quantity:newQty};
     if(mfd)payload.mfd_date=mfd;if(exp)payload.exp_date=exp;
-    await sb.from('stock_locations').upsert([payload],{onConflict:'sku, location_code'});
+    if(ex?.id){await sb.from('stock_locations').update({quantity:newQty,...(mfd?{mfd_date:mfd}:{})}).eq('id',ex.id);}
+    else{await sb.from('stock_locations').insert([payload]);}
     await writeStockLog('putaway',sku,currentDetailLoc,qty,before,newQty);
-    showToast(`เพิ่ม ${sku} ×${qty} แล้ว`,'success',2000);
+    showToast(`เพิ่ม ${sku} ×${qty} ${exp?`(EXP ${exp})`:''}แล้ว`,'success',2000);
     document.getElementById('locDetailSku').value='';document.getElementById('locDetailQty').value='';
     document.getElementById('locDetailMfd').value='';document.getElementById('locDetailExp').value='';
     await loadLocationDetailStock(currentDetailLoc);loadLocationManager();
   }catch(err){showToast('ล้มเหลว: '+err.message,'error');}
 }
 
+async function deleteStockRow(rowId,sku,code){
+  const ok=await showConfirm(`ลบล็อตนี้ของ ${sku}?`,`จะลบเฉพาะล็อตนี้ออกจาก ${code}`,'#dc2626');if(!ok)return;
+  await sb.from('stock_locations').delete().eq('id',rowId);
+  showToast(`ลบล็อตแล้ว`,'success',2000);
+  await loadLocationDetailStock(code);loadLocationManager();
+}
 async function deleteStockFromLocation(sku,code){
-  const ok=await showConfirm(`ลบ ${sku} ออกจาก ${code}?`,'สต็อคจะถูกลบทั้งหมด','#dc2626');if(!ok)return;
+  const ok=await showConfirm(`ลบ ${sku} ทุกล็อตออกจาก ${code}?`,'สต็อคทุกล็อตของ SKU นี้จะถูกลบ','#dc2626');if(!ok)return;
   await sb.from('stock_locations').delete().eq('sku',sku).eq('location_code',code);
-  showToast(`ลบ ${sku} แล้ว`,'success',2000);
+  showToast(`ลบ ${sku} (ทุกล็อต) แล้ว`,'success',2000);
   await loadLocationDetailStock(code);loadLocationManager();
 }
 
@@ -1630,18 +1649,17 @@ async function processLocationUpload(){
     let success=0;const logRows=[];const errors=[];
     if(overwrite){
       const stockRows=locUploadParsed.map(r=>{const payload={sku:r.sku,location_code:r.loc,quantity:r.qty};if(r.mfd)payload.mfd_date=r.mfd;if(r.exp)payload.exp_date=r.exp;return payload;});
-      for(let i=0;i<stockRows.length;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const{error}=await sb.from('stock_locations').upsert(chunk,{onConflict:'sku, location_code'});if(!error){chunk.forEach(r=>logRows.push({action_type:'putaway',sku:r.sku,location_code:r.location_code,qty_change:r.quantity,qty_before:0,qty_after:r.quantity,ref_doc:'LOC_UPLOAD'}));success+=chunk.length;}else{errors.push(error.message);}showProg(`บันทึก ${Math.min(i+CHUNK,stockRows.length)}/${total}...`,10+(i/stockRows.length)*80);await sleep(20);}
+      for(let i=0;i<stockRows.length;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const{error}=await sb.from('stock_locations').upsert(chunk,{onConflict:'sku, location_code, exp_date'});if(!error){chunk.forEach(r=>logRows.push({action_type:'putaway',sku:r.sku,location_code:r.location_code,qty_change:r.quantity,qty_before:0,qty_after:r.quantity,ref_doc:'LOC_UPLOAD'}));success+=chunk.length;}else{errors.push(error.message);}showProg(`บันทึก ${Math.min(i+CHUNK,stockRows.length)}/${total}...`,10+(i/stockRows.length)*80);await sleep(20);}
     }else{
       showProg('ดึงสต็อคเดิม...',10);
       const skuSet=new Set(locUploadParsed.map(r=>r.sku)),locSet=new Set(locUploadParsed.map(r=>r.loc));
       let existing=[],from2=0;
-      while(true){const{data,error}=await sb.from('stock_locations').select('sku,location_code,quantity').range(from2,from2+999);if(error)break;if(!data?.length)break;existing=existing.concat(data.filter(r=>skuSet.has(r.sku)&&locSet.has(r.location_code)));if(data.length<1000)break;from2+=1000;await sleep(10);}
-      const exMap={};existing.forEach(r=>{exMap[`${r.sku}__${r.location_code}`]=r.quantity;});
-      const stockRows=locUploadParsed.map(r=>{const key=`${r.sku}__${r.loc}`;const before=exMap[key]||0;const newQty=before+r.qty;
-        // ✅ FIX 5: carry mfd/exp correctly from r.mfd / r.exp (not r.mfd_date)
+      while(true){const{data,error}=await sb.from('stock_locations').select('sku,location_code,exp_date,quantity').range(from2,from2+999);if(error)break;if(!data?.length)break;existing=existing.concat(data.filter(r=>skuSet.has(r.sku)&&locSet.has(r.location_code)));if(data.length<1000)break;from2+=1000;await sleep(10);}
+      const exMap={};existing.forEach(r=>{const k=`${r.sku}__${r.location_code}__${r.exp_date||'null'}`;exMap[k]=r.quantity;});
+      const stockRows=locUploadParsed.map(r=>{const key=`${r.sku}__${r.loc}__${r.exp||'null'}`;const before=exMap[key]||0;const newQty=before+r.qty;
         const payload={sku:r.sku,location_code:r.loc,quantity:newQty,_before:before};
         if(r.mfd)payload.mfd_date=r.mfd;if(r.exp)payload.exp_date=r.exp;return payload;});
-      for(let i=0;i<stockRows.length;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const upsertChunk=chunk.map(r=>{const p={sku:r.sku,location_code:r.location_code,quantity:r.quantity};if(r.mfd_date)p.mfd_date=r.mfd_date;if(r.exp_date)p.exp_date=r.exp_date;return p;});const{error}=await sb.from('stock_locations').upsert(upsertChunk,{onConflict:'sku, location_code'});if(!error){chunk.forEach(r=>logRows.push({action_type:'putaway',sku:r.sku,location_code:r.location_code,qty_change:r.quantity-r._before,qty_before:r._before,qty_after:r.quantity,ref_doc:'LOC_UPLOAD'}));success+=chunk.length;}else{errors.push(error.message);}showProg(`บันทึก ${Math.min(i+CHUNK,stockRows.length)}/${total}...`,30+(i/stockRows.length)*60);await sleep(20);}
+      for(let i=0;i<stockRows.length;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const upsertChunk=chunk.map(r=>{const p={sku:r.sku,location_code:r.location_code,quantity:r.quantity};if(r.mfd_date)p.mfd_date=r.mfd_date;if(r.exp_date)p.exp_date=r.exp_date;return p;});const{error}=await sb.from('stock_locations').upsert(upsertChunk,{onConflict:'sku, location_code, exp_date'});if(!error){chunk.forEach(r=>logRows.push({action_type:'putaway',sku:r.sku,location_code:r.location_code,qty_change:r.quantity-r._before,qty_before:r._before,qty_after:r.quantity,ref_doc:'LOC_UPLOAD'}));success+=chunk.length;}else{errors.push(error.message);}showProg(`บันทึก ${Math.min(i+CHUNK,stockRows.length)}/${total}...`,30+(i/stockRows.length)*60);await sleep(20);}
     }
     const LOG_CHUNK=500;for(let i=0;i<logRows.length;i+=LOG_CHUNK){try{await sb.from('stock_logs').insert(logRows.slice(i,i+LOG_CHUNK));}catch(e){}await sleep(10);}
     hideProg();
@@ -1755,7 +1773,7 @@ async function confirmMoveStock(){
     const tgtBefore=tgtEx?.quantity??0,tgtAfter=tgtBefore+qty;
     const payload={sku,location_code:targetLoc,quantity:tgtAfter};
     if(mfd)payload.mfd_date=mfd;if(exp)payload.exp_date=exp;
-    await sb.from('stock_locations').upsert([payload],{onConflict:'sku, location_code'});
+    await sb.from('stock_locations').upsert([payload],{onConflict:'sku, location_code, exp_date'});
     await writeStockLog('putaway',sku,targetLoc,qty,tgtBefore,tgtAfter,`MOVE←${srcLocSel}`);
     showToast(`✅ ย้าย ${sku} ×${qty} จาก ${srcLocSel} → ${targetLoc} แล้ว`,'success',4000);
     closeMoveStockModal();loadUnmanagedStock();loadLocationManager();
@@ -1782,7 +1800,7 @@ async function smartDeductStock(deductMap){
     results.push({sku,needed,deducted:needed-remaining,locations:deductedLocs,status,shortfall:remaining});
   }
   const CHUNK=300;
-  for(let i=0;i<stockUpdates.length;i+=CHUNK){await sb.from('stock_locations').upsert(stockUpdates.slice(i,i+CHUNK),{onConflict:'sku, location_code'});await new Promise(r=>setTimeout(r,20));}
+  for(let i=0;i<stockUpdates.length;i+=CHUNK){await sb.from('stock_locations').upsert(stockUpdates.slice(i,i+CHUNK),{onConflict:'sku, location_code, exp_date'});await new Promise(r=>setTimeout(r,20));}
   for(let i=0;i<logRows.length;i+=CHUNK){try{await sb.from('stock_logs').insert(logRows.slice(i,i+CHUNK));}catch(e){}await new Promise(r=>setTimeout(r,10));}
   let autoPickDocNo=null;
   if(pickItems.length>0){
