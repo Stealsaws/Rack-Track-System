@@ -252,7 +252,11 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
         <div style="padding:12px 14px;border-bottom:1.5px solid var(--bdr);display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:13px;color:var(--t1);">🔔 แจ้งเตือน</span><button onclick="loadNotifications()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;">↻</button></div>
         <div id="notifPanelList" style="padding:6px;"></div>
       </div>
-      <div class="user-ava" id="userAva">AP</div>
+      <div style="position:relative;"><div class="user-ava" id="userAva" style="cursor:pointer;" onclick="toggleUserMenu()">AP</div>
+      <div id="userMenu" style="display:none;position:absolute;top:38px;right:0;background:var(--surf);border:1.5px solid var(--bdr);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:201;min-width:160px;overflow:hidden;">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);"><p id="userMenuName" style="font-weight:800;font-size:13px;color:var(--t1);">-</p><p id="userMenuRole" style="font-size:10px;color:var(--t3);"></p></div>
+        <button onclick="doLogout()" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;color:var(--rd-t);font-weight:700;display:flex;align-items:center;gap:8px;">🚪 ออกจากระบบ</button>
+      </div></div>
     </div>
   </div>
   <div id="globalStatus" class="g-status">⏳ กำลังเชื่อมต่อ...</div>
@@ -332,6 +336,7 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
             <input type="text" id="ovSearch" placeholder="ค้นหา SKU หรือชื่อ..." oninput="filterOverview()" class="rts-input" style="flex:1;min-width:140px;">
+            <select id="ovBranchFilter" onchange="filterOverview()" class="rts-select" style="width:auto;"><option value="">ทุกสาขา</option></select>
             <select id="ovLocFilter" onchange="filterOverview()" class="rts-select" style="width:auto;"><option value="">ทุกโลเคชั่น</option></select>
             <select id="ovStockFilter" onchange="filterOverview()" class="rts-select" style="width:auto;"><option value="">ทุกสถานะ</option><option value="positive">มีสต็อค</option><option value="zero">สต็อค=0</option><option value="expiring">ใกล้หมดอายุ</option></select>
             <button onclick="exportOverviewCSV()" class="card-btn">⬇ Export</button>
@@ -658,6 +663,8 @@ async function doLogin(){
   finally{setButtonLoading(btn,false,'เข้าสู่ระบบ');}
 }
 function doLogout(){sessionStorage.removeItem('rts_user');currentUser=null;document.getElementById('appScreen').style.display='none';document.getElementById('loginScreen').style.display='flex';document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';}
+function toggleUserMenu(){const m=document.getElementById('userMenu');const isOpen=m.style.display==='block';if(isOpen){m.style.display='none';document.removeEventListener('click',userMenuOutside);}else{m.style.display='block';const nm=document.getElementById('userMenuName');const rm=document.getElementById('userMenuRole');if(nm)nm.textContent=currentUser.display_name||currentUser.username||'-';if(rm)rm.textContent=`${currentUser.role==='admin'?'👑 Admin':currentUser.role==='manager'?'⭐ Manager':'👤 Staff'} · ${currentUser.branch_code||'HQ'}`;setTimeout(()=>document.addEventListener('click',userMenuOutside),50);}}
+function userMenuOutside(e){const m=document.getElementById('userMenu'),btn=document.getElementById('userAva');if(m&&!m.contains(e.target)&&btn&&!btn.contains(e.target)){m.style.display='none';document.removeEventListener('click',userMenuOutside);}}
 
 async function startApp(){
   document.getElementById('loginScreen').style.display='none';document.getElementById('appScreen').style.display='block';
@@ -1419,7 +1426,8 @@ async function loadOverview(){
     showOvProg('ประมวลผล...',60);await new Promise(r=>requestAnimationFrame(r));
     const rawData=all.map(r=>({sku:r.sku,name:r.products?.name||'',category:r.products?.category||'',cost:r.products?.cost_price||0,price:r.products?.price||0,location_code:r.location_code,quantity:r.quantity||0,exp_date:r.exp_date||null,mfd_date:r.mfd_date||null}));
     // aggregate: สรุปยอดรวมต่อ sku+location สำหรับแสดงในตาราง (หลายล็อตรวมเป็นแถวเดียว)
-    const aggMap={};rawData.forEach(r=>{const k=`${r.sku}||${r.location_code}`;if(!aggMap[k]){aggMap[k]={...r};}else{aggMap[k].quantity+=r.quantity;if(r.exp_date&&(!aggMap[k].exp_date||r.exp_date<aggMap[k].exp_date))aggMap[k].exp_date=r.exp_date;}});
+    const branchByLoc={};(allLocations||[]).forEach(l=>{branchByLoc[l.location_code]=l.branch_code||'HQ';});
+    const aggMap={};rawData.forEach(r=>{const k=`${r.sku}||${r.location_code}`;if(!aggMap[k]){aggMap[k]={...r,_branch:branchByLoc[r.location_code]||'HQ'};}else{aggMap[k].quantity+=r.quantity;if(r.exp_date&&(!aggMap[k].exp_date||r.exp_date<aggMap[k].exp_date))aggMap[k].exp_date=r.exp_date;}});
     ovAllData=Object.values(aggMap);
     // เก็บ rawData ไว้สำหรับ Export (แสดงทุกล็อตแยกกัน)
     ovRawDataForExport=rawData;
@@ -1437,6 +1445,8 @@ async function loadOverview(){
     const ovProfitEl=document.getElementById('ovTotalProfit');if(ovProfitEl){const profit=totalRetail-totalCost;const pct=totalRetail?((profit/totalRetail)*100).toFixed(1):'0';ovProfitEl.textContent=`${fmtB(profit)} (${pct}%)`;}
     const locSel=document.getElementById('ovLocFilter');
     if(locSel){const locs=[...locSet].sort();locSel.innerHTML='<option value="">ทุกโลเคชั่น</option>'+locs.map(l=>`<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');}
+    const branchSel=document.getElementById('ovBranchFilter');
+    if(branchSel){const branches=[...new Set((allLocations||[]).map(l=>l.branch_code||'HQ'))].sort();branchSel.innerHTML='<option value="">ทุกสาขา</option>'+branches.map(b=>`<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');}
     const tsEl=document.getElementById('overviewLastUpdate');if(tsEl)tsEl.textContent='อัปเดต: '+new Date().toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});
     showOvProg('สร้างกราฟ...',80);await new Promise(r=>requestAnimationFrame(r));
     renderOverviewChart();
@@ -1466,10 +1476,12 @@ function renderOverviewChart(){
 function filterOverview(){
   const q=(document.getElementById('ovSearch')?.value||'').trim().toLowerCase();
   const locF=document.getElementById('ovLocFilter')?.value||'';
+  const branchF=document.getElementById('ovBranchFilter')?.value||'';
   const stockF=document.getElementById('ovStockFilter')?.value||'';
   ovFiltered=ovAllData.filter(r=>{
     if(q&&!r.sku.toLowerCase().includes(q)&&!r.name.toLowerCase().includes(q))return false;
     if(locF&&r.location_code!==locF)return false;
+    if(branchF&&r._branch!==branchF)return false;
     if(stockF==='positive'&&r.quantity<=0)return false;
     if(stockF==='zero'&&r.quantity>0)return false;
     if(stockF==='expiring'&&!isExpiringSoon(r.exp_date,30))return false;
