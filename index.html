@@ -1070,7 +1070,59 @@ const SCANNER_CONFIGS={
   'exprule-sku':{title:'📦 สแกน SKU ตั้งค่าหมดอายุ',subtitle:'จ่อกล้องที่บาร์โค้ดสินค้า',onResult:(code)=>{const el=document.getElementById('exprSkuInput');if(el)el.value=code.toUpperCase();closeScannerModal();loadExpiryRuleForSku();}}
 };
 function openScanner(context){scannerContext=context;const cfg=SCANNER_CONFIGS[context];if(!cfg)return;document.getElementById('scannerModalTitle').textContent=cfg.title;document.getElementById('scannerModalSubtitle').textContent=cfg.subtitle;document.getElementById('scannerManualInput').value='';document.getElementById('scannerLastResult').style.display='none';document.getElementById('scannerModal').classList.add('show');setTimeout(()=>startScannerCamera(cfg.onResult),200);}
-function startScannerCamera(onResult){if(typeof Html5Qrcode==='undefined'){showToast('กำลังโหลดระบบกล้อง...','info');return;}const el=document.getElementById('scannerReader');el.innerHTML='';const showCamErr=(err)=>{const msg=(err&&err.message)||String(err)||'ไม่ทราบสาเหตุ';el.innerHTML=`<p style="color:#fff;font-size:12px;text-align:center;padding:24px;">เปิดกล้องไม่ได้<br><span style="color:#f87171;font-size:10px;">${escapeHtml(msg)}</span><br>ลองพิมพ์รหัสแทนครับ</p>`;console.warn('Scanner error:',err);};try{scannerInstance=new Html5Qrcode('scannerReader');Html5Qrcode.getCameras().then(cameras=>{if(!cameras||!cameras.length){el.innerHTML='<p style="color:#fff;font-size:12px;text-align:center;padding:32px;">ไม่พบกล้องในอุปกรณ์นี้</p>';return;}const cam=cameras.find(c=>c.label.toLowerCase().includes('back'))||cameras[cameras.length-1];scannerInstance.start(cam.id,{fps:15,qrbox:{width:260,height:160},aspectRatio:1.5},(code)=>{el.style.outline='3px solid #059669';setTimeout(()=>el.style.outline='none',300);document.getElementById('scannerLastResult').textContent=`✅ สแกนได้: ${code}`;document.getElementById('scannerLastResult').style.display='';onResult(code);},()=>{}).then(()=>{try{scannerInstance.applyVideoConstraints({advanced:[{focusMode:'continuous'}]});}catch(e){}}).catch(showCamErr);scannerActive=true;}).catch(showCamErr);}catch(e){showCamErr(e);}}
+function startScannerCamera(onResult){
+  if(typeof Html5Qrcode==='undefined'){showToast('กำลังโหลดระบบกล้อง...','info');return;}
+  const el=document.getElementById('scannerReader');
+  el.innerHTML='';
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  // iOS Safari tip - show it before camera opens so user knows what to expect
+  if(isIOS){
+    const tip=document.getElementById('scannerLastResult')||document.createElement('p');
+    tip.style.cssText='color:#fbbf24;font-size:11px;text-align:center;padding:4px 8px;';
+    tip.textContent='💡 iPhone: จ่อบาร์โค้ดให้ชัด แสงดี รอ 1-2 วิ กล้องถึงจะโฟกัส';
+    el.parentNode.insertBefore(tip,el);
+  }
+  const showCamErr=(err)=>{const msg=(err&&err.message)||String(err)||'ไม่ทราบสาเหตุ';el.innerHTML=`<p style="color:#fff;font-size:12px;text-align:center;padding:24px;">เปิดกล้องไม่ได้<br><span style="color:#f87171;font-size:10px;">${escapeHtml(msg)}</span><br>ลองพิมพ์รหัสแทนครับ</p>`;console.warn('Scanner error:',err);};
+  try{
+    scannerInstance=new Html5Qrcode('scannerReader');
+    Html5Qrcode.getCameras().then(cameras=>{
+      if(!cameras||!cameras.length){el.innerHTML='<p style="color:#fff;font-size:12px;text-align:center;padding:32px;">ไม่พบกล้องในอุปกรณ์นี้</p>';return;}
+      const cam=cameras.find(c=>c.label.toLowerCase().includes('back'))||cameras[cameras.length-1];
+      // iOS: square qrbox + lower fps + higher resolution = ZXing gets cleaner frames
+      // Android: wide qrbox + higher fps works better with BarcodeDetector
+      const config=isIOS
+        ?{fps:8,qrbox:{width:280,height:280},aspectRatio:1.0,
+           videoConstraints:{facingMode:{exact:'environment'},width:{ideal:1920},height:{ideal:1080}}}
+        :{fps:15,qrbox:{width:260,height:160},aspectRatio:1.5,
+           videoConstraints:{facingMode:{exact:'environment'}}};
+      scannerInstance.start(
+        {facingMode:{exact:'environment'}},
+        config,
+        (code)=>{
+          el.style.outline='3px solid #059669';
+          setTimeout(()=>el.style.outline='none',300);
+          if(document.getElementById('scannerLastResult')){document.getElementById('scannerLastResult').textContent=`✅ สแกนได้: ${code}`;document.getElementById('scannerLastResult').style.display='';}
+          onResult(code);
+        },
+        ()=>{}
+      ).then(()=>{
+        try{scannerInstance.applyVideoConstraints({advanced:[{focusMode:'continuous'}]});}catch(e){}
+        // iOS: add a "tap to refocus" overlay since continuous autofocus is unreliable on Safari
+        if(isIOS){
+          const refocusBtn=document.createElement('button');
+          refocusBtn.textContent='🔍 แตะเพื่อโฟกัส';
+          refocusBtn.style.cssText='position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:6px 16px;font-size:11px;cursor:pointer;z-index:10;';
+          refocusBtn.onclick=()=>{try{scannerInstance.applyVideoConstraints({advanced:[{focusMode:'auto'},{focusMode:'continuous'}]});}catch(e){}};
+          el.style.position='relative';el.appendChild(refocusBtn);
+        }
+      }).catch(err=>{
+        // fallback: try without exact constraint (some older iOS models need this)
+        scannerInstance.start(cam.id,isIOS?{fps:8,qrbox:{width:280,height:280},aspectRatio:1.0}:{fps:15,qrbox:{width:260,height:160},aspectRatio:1.5},(code)=>{if(document.getElementById('scannerLastResult')){document.getElementById('scannerLastResult').textContent=`✅ สแกนได้: ${code}`;document.getElementById('scannerLastResult').style.display='';}onResult(code);},()=>{}).then(()=>{try{scannerInstance.applyVideoConstraints({advanced:[{focusMode:'continuous'}]});}catch(e){}}).catch(showCamErr);
+      });
+      scannerActive=true;
+    }).catch(showCamErr);
+  }catch(e){showCamErr(e);}
+}
 function closeScannerModal(){if(scannerInstance&&scannerActive){scannerInstance.stop().catch(()=>{}).finally(()=>{scannerInstance=null;scannerActive=false;});}document.getElementById('scannerModal').classList.remove('show');document.getElementById('scannerReader').innerHTML='';}
 function confirmScannerManual(){const val=document.getElementById('scannerManualInput').value.trim().toUpperCase();if(!val)return;const cfg=SCANNER_CONFIGS[scannerContext];if(cfg)cfg.onResult(val);}
 
