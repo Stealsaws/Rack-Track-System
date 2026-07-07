@@ -1385,7 +1385,8 @@ async function loadExpDash(){
     // also fetch expired items (exp_date <= today)
     const today=new Date().toISOString().slice(0,10);
     const{data:expired}=await sb.from('stock_locations').select('sku,exp_date,mfd_date,quantity,location_code,products(name,category)').gt('quantity',0).lt('exp_date',today).order('exp_date',{ascending:true});
-    const{data:locs}=await sb.from('locations').select('location_code,branch_code');
+    const{data:locs}=ovLocationsCache.length?{data:ovLocationsCache}:await sb.from('locations').select('location_code,branch_code');
+    if(!ovLocationsCache.length&&locs)ovLocationsCache=locs;
     const branchByLoc={};(locs||[]).forEach(l=>{branchByLoc[l.location_code]=l.branch_code||'HQ';});
     const expiredRows=(expired||[]).map(r=>({id:null,sku:r.sku,exp_date:r.exp_date,mfd_date:r.mfd_date,quantity:r.quantity,location_code:r.location_code,products:r.products,_noLot:true,_alert0:true}));
     // deduplicate: expired rows may overlap with raw for items at d=0
@@ -1462,6 +1463,7 @@ async function loadStockValueSummary(){
     let allProducts=[];from=0;
     while(true){const{data,error}=await sb.from('products').select('sku,cost_price,price,category').range(from,from+999);if(error)throw error;if(!data||!data.length)break;allProducts=allProducts.concat(data);if(data.length<1000)break;from+=1000;}
     const{data:allLocations}=await sb.from('locations').select('location_code,branch_code');
+    ovLocationsCache=allLocations||[];
     const prodMap={};allProducts.forEach(p=>{prodMap[p.sku]={cost:p.cost_price||0,price:p.price||0,category:p.category||'ไม่ระบุหมวด'};});
     const branchMap={};(allLocations||[]).forEach(l=>{branchMap[l.location_code]=l.branch_code||'HQ';});
     let totalCost=0,totalRetail=0;const byBranch={},byCategory={};
@@ -1533,7 +1535,7 @@ async function loadDashLowStock(){const section=document.getElementById('dashLow
 // ============================================================
 // OVERVIEW PAGE
 // ============================================================
-let ovAllData=[],ovFiltered=[],ovRawDataForExport=[],ovChartInstance=null;
+let ovAllData=[],ovFiltered=[],ovRawDataForExport=[],ovChartInstance=null,ovLocationsCache=[];
 async function loadOverview(){
   const btn=document.getElementById('overviewRefreshBtn'),tb=document.getElementById('ovTableBody');
   setButtonLoading(btn,true,'⏳...');
@@ -1547,7 +1549,7 @@ async function loadOverview(){
     showOvProg('ประมวลผล...',60);await new Promise(r=>requestAnimationFrame(r));
     const rawData=all.map(r=>({sku:r.sku,name:r.products?.name||'',category:r.products?.category||'',cost:r.products?.cost_price||0,price:r.products?.price||0,location_code:r.location_code,quantity:r.quantity||0,exp_date:r.exp_date||null,mfd_date:r.mfd_date||null}));
     // aggregate: สรุปยอดรวมต่อ sku+location สำหรับแสดงในตาราง (หลายล็อตรวมเป็นแถวเดียว)
-    const branchByLoc={};(allLocations||[]).forEach(l=>{branchByLoc[l.location_code]=l.branch_code||'HQ';});
+    const branchByLoc={};(ovLocationsCache).forEach(l=>{branchByLoc[l.location_code]=l.branch_code||'HQ';});
     const aggMap={};rawData.forEach(r=>{const k=`${r.sku}||${r.location_code}`;if(!aggMap[k]){aggMap[k]={...r,_branch:branchByLoc[r.location_code]||'HQ'};}else{aggMap[k].quantity+=r.quantity;if(r.exp_date&&(!aggMap[k].exp_date||r.exp_date<aggMap[k].exp_date))aggMap[k].exp_date=r.exp_date;}});
     ovAllData=Object.values(aggMap);
     // เก็บ rawData ไว้สำหรับ Export (แสดงทุกล็อตแยกกัน)
@@ -1567,7 +1569,7 @@ async function loadOverview(){
     const locSel=document.getElementById('ovLocFilter');
     if(locSel){const locs=[...locSet].sort();locSel.innerHTML='<option value="">ทุกโลเคชั่น</option>'+locs.map(l=>`<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');}
     const branchSel=document.getElementById('ovBranchFilter');
-    if(branchSel){const branches=[...new Set((allLocations||[]).map(l=>l.branch_code||'HQ'))].sort();branchSel.innerHTML='<option value="">ทุกสาขา</option>'+branches.map(b=>`<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');}
+    if(branchSel){const branches=[...new Set((ovLocationsCache).map(l=>l.branch_code||'HQ'))].sort();branchSel.innerHTML='<option value="">ทุกสาขา</option>'+branches.map(b=>`<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');}
     const tsEl=document.getElementById('overviewLastUpdate');if(tsEl)tsEl.textContent='อัปเดต: '+new Date().toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});
     showOvProg('สร้างกราฟ...',80);await new Promise(r=>requestAnimationFrame(r));
     renderOverviewChart();
