@@ -485,7 +485,40 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
         <div class="rts-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span class="card-title">📋 รายการที่ตั้งค่าไว้</span><button onclick="loadExpiryRulesList()" class="card-btn">↻</button></div><div id="exprRulesList" style="display:flex;flex-direction:column;gap:6px;"><p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">กำลังโหลด...</p></div></div>
       </section>
 
-      <!-- LOCATIONS -->
+      <!-- EXPIRY DASHBOARD -->
+      <section id="page-expdash" style="display:none;max-width:960px;margin:0 auto;">
+        <div class="rts-card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div><h2 style="font-size:15px;font-weight:900;color:var(--t1);margin:0;">📊 Dashboard สินค้ามีวันหมดอายุ</h2><p style="font-size:11px;color:var(--t3);">ภาพรวมสินค้าที่มีวันหมดอายุทั้งหมดในระบบ</p></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <select id="expdBranch" class="rts-select" style="font-size:12px;padding:4px 8px;width:auto;" onchange="renderExpDash()"><option value="">ทุกสาขา</option></select>
+            <select id="expdCategory" class="rts-select" style="font-size:12px;padding:4px 8px;width:auto;" onchange="renderExpDash()"><option value="">ทุกหมวด</option></select>
+            <button onclick="loadExpDash()" class="card-btn">↻</button>
+            <button onclick="exportExpDash()" class="abtn btn-solid-nv" style="font-size:11px;padding:6px 10px;">⬇ Export</button>
+          </div>
+        </div>
+        <!-- KPI Tiles -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;" id="expdKpiGrid">
+          <div style="background:#3a0a0a;border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('0')"><p style="font-size:10px;color:#fca5a5;font-weight:700;">⚫ หมดอายุแล้ว</p><p id="expdK0" style="font-size:28px;font-weight:900;color:#fca5a5;">-</p><p style="font-size:9px;color:#fca5a5;">รายการ</p></div>
+          <div style="background:var(--rd-bg);border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('10')"><p style="font-size:10px;color:var(--rd-t);font-weight:700;">🔴 น้อยกว่า 10 วัน</p><p id="expdK10" style="font-size:28px;font-weight:900;color:var(--rd-t);">-</p><p style="font-size:9px;color:var(--rd-t);">รายการ</p></div>
+          <div style="background:var(--am-bg);border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('30')"><p style="font-size:10px;color:var(--am-t);font-weight:700;">🟠 10–30 วัน</p><p id="expdK30" style="font-size:28px;font-weight:900;color:var(--am-t);">-</p><p style="font-size:9px;color:var(--am-t);">รายการ</p></div>
+          <div style="background:var(--surf2);border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('60')"><p style="font-size:10px;color:var(--t2);font-weight:700;">🟡 30–60 วัน</p><p id="expdK60" style="font-size:28px;font-weight:900;color:var(--t2);">-</p><p style="font-size:9px;color:var(--t2);">รายการ</p></div>
+          <div style="background:#1e3a5f;border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('90')"><p style="font-size:10px;color:#93c5fd;font-weight:700;">🔵 60–90 วัน</p><p id="expdK90" style="font-size:28px;font-weight:900;color:#93c5fd;">-</p><p style="font-size:9px;color:#93c5fd;">รายการ</p></div>
+          <div style="background:#312e5f;border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('120')"><p style="font-size:10px;color:#c7d2fe;font-weight:700;">🟣 90–120 วัน</p><p id="expdK120" style="font-size:28px;font-weight:900;color:#c7d2fe;">-</p><p style="font-size:9px;color:#c7d2fe;">รายการ</p></div>
+        </div>
+        <!-- Chart -->
+        <div class="rts-card" style="margin-bottom:12px;"><p style="font-size:11px;font-weight:800;color:var(--t2);margin-bottom:10px;">📈 กระจายตามหมวดสินค้า (จำนวนรายการ)</p><div style="overflow-x:auto;"><canvas id="expdChart" height="120"></canvas></div></div>
+        <!-- Tier filter + Table -->
+        <div class="rts-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+            <span class="card-title">รายการสินค้า <span id="expdRowCount" style="font-size:11px;color:var(--t3);"></span></span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <select id="expdTierFilter" class="rts-select" style="font-size:11px;padding:4px 8px;width:auto;" onchange="renderExpDash()"><option value="">ทุกกลุ่ม</option><option value="0">⚫ หมดแล้ว</option><option value="10">🔴 &lt;10 วัน</option><option value="30">🟠 10-30 วัน</option><option value="60">🟡 30-60 วัน</option><option value="90">🔵 60-90 วัน</option><option value="120">🟣 90-120 วัน</option></select>
+              <input id="expdSearch" class="rts-input" placeholder="ค้นหา SKU/ชื่อ..." oninput="renderExpDash()" style="font-size:11px;padding:4px 8px;width:150px;">
+            </div>
+          </div>
+          <div style="overflow-x:auto;max-height:440px;"><table class="rts-table"><thead><tr><th>SKU</th><th>ชื่อสินค้า</th><th>หมวด</th><th>โลเคชั่น</th><th style="text-align:right;">จำนวน</th><th>MFD</th><th>EXP</th><th style="text-align:right;">เหลือ (วัน)</th><th>กลุ่ม</th></tr></thead><tbody id="expdTableBody"><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--t3);">กำลังโหลด...</td></tr></tbody></table></div>
+        </div>
+      </section>
       <section id="page-locations" style="display:none;max-width:960px;margin:0 auto;">
         <div style="background:var(--nv);border-radius:14px;padding:18px 20px;color:#fff;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
           <div><h2 style="font-size:17px;font-weight:900;color:#fff;margin:0;">📍 จัดการโลเคชั่น</h2><p style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;">เพิ่ม / แก้ไข / ลบ และ Upload stock</p></div>
@@ -583,8 +616,8 @@ function initSb(){if(!_sb&&typeof supabase!=='undefined'){_sb=supabase.createCli
 const sb=new Proxy({},{get:(_,prop)=>{const client=initSb();if(!client)throw new Error('Supabase not loaded yet');return client[prop].bind?client[prop].bind(client):client[prop];}});
 
 const ROLE_TABS={
-  admin:['dashboard','overview','putaway','pick','report','count','logs','sync','master','sku','locations','users','branches','api','lots','expiry','exprules'],
-  manager:['dashboard','overview','putaway','pick','report','count','logs','sync','lots','expiry','exprules','locations'],
+  admin:['dashboard','overview','putaway','pick','report','count','logs','sync','master','sku','locations','users','branches','api','lots','expiry','exprules','expdash'],
+  manager:['dashboard','overview','putaway','pick','report','count','logs','sync','lots','expiry','exprules','expdash','locations'],
   staff:['dashboard','putaway','pick','report','count','lots']
 };
 const TAB_CONFIG={
@@ -604,6 +637,7 @@ const TAB_CONFIG={
   lots:{label:'Lot สินค้า',icon:'📦',mobile:false},
   expiry:{label:'หมดอายุ',icon:'⏰',mobile:true},
   exprules:{label:'เงื่อนไขหมดอายุ',icon:'🏷️',mobile:false},
+  expdash:{label:'Dashboard หมดอายุ',icon:'📊',mobile:false},
   locations:{label:'โลเคชั่น',icon:'📍',mobile:false}
 };
 
@@ -692,7 +726,7 @@ function switchTab(id){
   const mob=tabs.filter(t=>TAB_CONFIG[t].mobile).slice(0,4);mob.forEach(t=>{const mb=document.getElementById(`mtab-${t}`);if(mb)mb.className=t===id?"bnav-item on":"bnav-item";});
   if(id==='dashboard')loadDashboard();
   if(id==='overview')loadOverview();
-  if(id==='sku')loadSkuManager();if(id==='report')loadReport();if(id==='pick')loadPickOrders();if(id==='logs')loadLogs();if(id==='users')loadUsers();if(id==='count')loadCycleSessions();if(id==='branches')loadBranches();if(id==='api')loadApiLog();if(id==='lots')loadLots();if(id==='expiry')loadExpiryAlert();if(id==='exprules')loadExpiryRulesList();if(id==='locations')loadLocationManager();
+  if(id==='sku')loadSkuManager();if(id==='report')loadReport();if(id==='pick')loadPickOrders();if(id==='logs')loadLogs();if(id==='users')loadUsers();if(id==='count')loadCycleSessions();if(id==='branches')loadBranches();if(id==='api')loadApiLog();if(id==='lots')loadLots();if(id==='expiry')loadExpiryAlert();if(id==='exprules')loadExpiryRulesList();if(id==='expdash')loadExpDash();if(id==='locations')loadLocationManager();
 }
 
 async function checkConn(){try{const{error}=await sb.from('locations').select('location_code').limit(1);if(error)throw error;const el=document.getElementById('globalStatus');if(el){el.className='g-status ok';el.textContent='🟢 เชื่อมต่อสำเร็จ';}}catch{const el=document.getElementById('globalStatus');if(el){el.className='g-status';el.textContent='🔴 ขาดการเชื่อมต่อ';}}}
@@ -1332,7 +1366,83 @@ function closeMarkdownModal(){document.getElementById('markdownModal').classList
 async function saveMarkdownRequest(){if(!currentMarkdownLot)return;const actionType=document.getElementById('markdownActionType').value,note=document.getElementById('markdownNote').value.trim(),btn=document.getElementById('markdownSaveBtn');setButtonLoading(btn,true,'⏳...');try{const d=daysLeft(currentMarkdownLot.exp_date);const{error}=await sb.from('markdown_requests').insert([{lot_id:currentMarkdownLot.id,sku:currentMarkdownLot.sku,location_code:currentMarkdownLot.location_code,branch_code:currentUser.branch_code||'HQ',exp_date:currentMarkdownLot.exp_date,quantity:currentMarkdownLot.quantity,days_left:d,action_type:actionType,status:'pending',requested_by:currentUser.display_name,note}]);if(error)throw error;showToast('ส่งคำขอแล้ว — รอการอนุมัติ','success');closeMarkdownModal();loadExpiryAlert();}catch(err){showToast('ล้มเหลว: '+err.message,'error');}finally{setButtonLoading(btn,false,'ส่งคำขอ');}}
 async function loadMarkdownRequests(){const list=document.getElementById('markdownList'),statusF=document.getElementById('mdStatusFilter')?.value||'pending';if(!list)return;list.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">⏳...</p>';try{let q=sb.from('markdown_requests').select('*').order('created_at',{ascending:false}).limit(200);if(statusF)q=q.eq('status',statusF);const{data,error}=await q;if(error)throw error;if(!data?.length){list.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">ไม่มีรายการ</p>';return;}const atLabel={markdown_120:'🟣 เฝ้าระวัง',markdown_90:'🔵 วางแผนล่วงหน้า',markdown_60:'🟡 ขอลดราคา',markdown_30:'🟠 ลดราคาด่วน',return_destroy_10:'🔴 คืน/ทำลาย',return_destroy_0:'⚫ คืน/ทำลายด่วน'};const stPill={pending:'pill-am',approved:'pill-g',done:'pill-b',rejected:'pill-r'};const groups=[],seen={};data.forEach(r=>{if(r.batch_no){if(!seen[r.batch_no]){seen[r.batch_no]={batch_no:r.batch_no,rows:[],created_at:r.created_at,requested_by:r.requested_by,status:r.status,action_type:r.action_type,note:r.batch_note||r.note};groups.push(seen[r.batch_no]);}seen[r.batch_no].rows.push(r);}else{groups.push({single:r});}});list.innerHTML=groups.map(g=>{if(g.single){const r=g.single;const dt=new Date(r.created_at).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});const canApprove=r.status==='pending'&&(currentUser.role==='admin'||currentUser.role==='manager');return `<div style="border:1.5px solid var(--bdr);border-radius:10px;padding:12px;background:var(--surf);margin-bottom:6px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><p style="font-family:'Courier New',monospace;font-weight:800;color:var(--t1);">${escapeHtml(r.sku)}</p><p style="font-size:11px;color:var(--t3);">${escapeHtml(r.location_code)} • EXP: ${r.exp_date} • ${r.quantity} ชิ้น</p><p style="font-size:11px;color:var(--t3);">${atLabel[r.action_type]||r.action_type} • ${dt} • โดย ${escapeHtml(r.requested_by||'-')}</p>${r.note?`<p style="font-size:11px;color:var(--t3);font-style:italic;">"${escapeHtml(r.note)}"</p>`:''}</div><span class="pill ${stPill[r.status]||'pill-b'}" style="flex-shrink:0;">${r.status}</span></div>${canApprove?`<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;"><button onclick="approveMarkdown('${r.id}','done')" class="abtn btn-solid-gn" style="font-size:11px;">✅ อนุมัติ</button><button onclick="approveMarkdown('${r.id}','rejected')" class="abtn btn-rd" style="font-size:11px;">❌ ปฏิเสธ</button></div>`:''}</div>`;}const dt=new Date(g.created_at).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});const totalQty=g.rows.reduce((s,r)=>s+(r.quantity||0),0);const canApprove=g.status==='pending'&&(currentUser.role==='admin'||currentUser.role==='manager');const itemsHtml=g.rows.map(r=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:3px 0;border-bottom:1px solid var(--bdr);"><span style="font-family:'Courier New',monospace;flex-shrink:0;">${escapeHtml(r.sku)}</span><span style="color:var(--t3);text-align:right;">${escapeHtml(r.location_code)} • ${r.quantity} ชิ้น • EXP ${r.exp_date}</span></div>`).join('');return `<div style="border:2px solid var(--or);border-radius:10px;padding:12px;background:var(--surf);margin-bottom:6px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><p style="font-weight:800;color:var(--t1);font-size:13px;">📄 ${escapeHtml(g.batch_no)}</p><p style="font-size:11px;color:var(--t3);">${atLabel[g.action_type]||g.action_type} • ${g.rows.length} รายการ • รวม ${totalQty} ชิ้น</p><p style="font-size:11px;color:var(--t3);">${dt} • โดย ${escapeHtml(g.requested_by||'-')}</p>${g.note?`<p style="font-size:11px;color:var(--t3);font-style:italic;">"${escapeHtml(g.note)}"</p>`:''}</div><span class="pill ${stPill[g.status]||'pill-b'}" style="flex-shrink:0;">${g.status}</span></div><details style="margin-top:8px;"><summary style="font-size:11px;color:var(--bl);cursor:pointer;">ดูรายการ (${g.rows.length})</summary><div style="margin-top:6px;max-height:160px;overflow-y:auto;">${itemsHtml}</div></details>${canApprove?`<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;"><button onclick="approveMarkdownBatch('${g.batch_no}','done')" class="abtn btn-solid-gn" style="font-size:11px;">✅ อนุมัติทั้งหมด</button><button onclick="approveMarkdownBatch('${g.batch_no}','rejected')" class="abtn btn-rd" style="font-size:11px;">❌ ปฏิเสธทั้งหมด</button></div>`:''}</div>`;}).join('');}catch(err){list.innerHTML=`<p style="font-size:12px;color:var(--rd-t);text-align:center;padding:12px;">❌ ${escapeHtml(err.message)}</p>`;}}
 async function approveMarkdownBatch(batchNo,newStatus){const action=newStatus==='done'?'อนุมัติ':'ปฏิเสธ';const ok=await showConfirm(`${action}เอกสาร ${batchNo} ทั้งหมด?`,'',newStatus==='done'?'var(--gn)':'#dc2626');if(!ok)return;const updates={status:newStatus==='done'?'approved':'rejected',approved_by:currentUser.display_name,approved_at:new Date().toISOString()};const{error}=await sb.from('markdown_requests').update(updates).eq('batch_no',batchNo);if(error){showToast('ล้มเหลว: '+error.message,'error');return;}if(newStatus==='done'){const{data:rows}=await sb.from('markdown_requests').select('lot_id,action_type').eq('batch_no',batchNo);const lotIds=(rows||[]).filter(r=>r.lot_id).map(r=>r.lot_id);if(lotIds.length){const lotStatus=rows[0]?.action_type?.startsWith('return_destroy')?'destroy':'markdown';await sb.from('stock_lots').update({status:lotStatus}).in('id',lotIds);}}showToast(`${action}เอกสารแล้ว`,'success');loadMarkdownRequests();}
-// EXPIRY RULES (ตั้งค่าเงื่อนไขหมดอายุรายสินค้า)
+// EXPIRY DASHBOARD
+let expdAllData=[],expdChartInstance=null;
+const EXPD_TIERS=[
+  {key:'0',label:'⚫ หมดแล้ว',color:'#7f1d1d',textColor:'#fca5a5',test:d=>d<=0},
+  {key:'10',label:'🔴 <10 วัน',color:'#991b1b',textColor:'#fca5a5',test:d=>d>0&&d<=10},
+  {key:'30',label:'🟠 10-30 วัน',color:'#92400e',textColor:'#fcd34d',test:d=>d>10&&d<=30},
+  {key:'60',label:'🟡 30-60 วัน',color:'#78350f',textColor:'#fde68a',test:d=>d>30&&d<=60},
+  {key:'90',label:'🔵 60-90 วัน',color:'#1e3a5f',textColor:'#93c5fd',test:d=>d>60&&d<=90},
+  {key:'120',label:'🟣 90-120 วัน',color:'#312e5f',textColor:'#c7d2fe',test:d=>d>90&&d<=120},
+];
+function getExpdTier(d){return EXPD_TIERS.find(t=>t.test(d))||null;}
+async function loadExpDash(){
+  const tb=document.getElementById('expdTableBody');if(tb)tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--t3);">⏳ กำลังโหลด...</td></tr>';
+  try{
+    const d120=new Date();d120.setDate(d120.getDate()+120);
+    const raw=await fetchExpiringStock(d120.toISOString().slice(0,10));
+    // also fetch expired items (exp_date <= today)
+    const today=new Date().toISOString().slice(0,10);
+    const{data:expired}=await sb.from('stock_locations').select('sku,exp_date,mfd_date,quantity,location_code,products(name,category)').gt('quantity',0).lt('exp_date',today).order('exp_date',{ascending:true});
+    const{data:locs}=await sb.from('locations').select('location_code,branch_code');
+    const branchByLoc={};(locs||[]).forEach(l=>{branchByLoc[l.location_code]=l.branch_code||'HQ';});
+    const expiredRows=(expired||[]).map(r=>({id:null,sku:r.sku,exp_date:r.exp_date,mfd_date:r.mfd_date,quantity:r.quantity,location_code:r.location_code,products:r.products,_noLot:true,_alert0:true}));
+    // deduplicate: expired rows may overlap with raw for items at d=0
+    const seen=new Set(raw.map(r=>`${r.sku}|${r.location_code}|${r.exp_date}`));
+    const merged=[...raw,...expiredRows.filter(r=>!seen.has(`${r.sku}|${r.location_code}|${r.exp_date}`))];
+    expdAllData=merged.map(r=>({sku:r.sku,name:r.products?.name||'',category:r.products?.category||'ไม่ระบุหมวด',location_code:r.location_code,branch:branchByLoc[r.location_code]||'HQ',quantity:r.quantity,mfd_date:r.mfd_date||null,exp_date:r.exp_date,days:daysLeft(r.exp_date)})).sort((a,b)=>a.days-b.days);
+    // populate filters
+    const branchSel=document.getElementById('expdBranch');const catSel=document.getElementById('expdCategory');
+    if(branchSel){const branches=[...new Set(expdAllData.map(r=>r.branch))].sort();branchSel.innerHTML='<option value="">ทุกสาขา</option>'+branches.map(b=>`<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');}
+    if(catSel){const cats=[...new Set(expdAllData.map(r=>r.category))].sort();catSel.innerHTML='<option value="">ทุกหมวด</option>'+cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');}
+    renderExpDash();
+  }catch(err){const tb2=document.getElementById('expdTableBody');if(tb2)tb2.innerHTML=`<tr><td colspan="9" style="color:var(--rd-t);text-align:center;padding:16px;">❌ ${escapeHtml(err.message)}</td></tr>`;}
+}
+function renderExpDash(){
+  const branchF=document.getElementById('expdBranch')?.value||'';
+  const catF=document.getElementById('expdCategory')?.value||'';
+  const tierF=document.getElementById('expdTierFilter')?.value||'';
+  const q=(document.getElementById('expdSearch')?.value||'').trim().toLowerCase();
+  const filtered=expdAllData.filter(r=>{
+    if(branchF&&r.branch!==branchF)return false;
+    if(catF&&r.category!==catF)return false;
+    if(q&&!r.sku.toLowerCase().includes(q)&&!r.name.toLowerCase().includes(q))return false;
+    if(tierF){const tier=getExpdTier(r.days);if(!tier||tier.key!==tierF)return false;}
+    return true;
+  });
+  // KPI tiles
+  EXPD_TIERS.forEach(t=>{const count=filtered.filter(r=>t.test(r.days)).length;const el=document.getElementById(`expdK${t.key}`);if(el){el.textContent=count.toLocaleString();el.style.color=count>0?t.textColor:'var(--t3)';}});
+  // Chart by category per tier
+  const cats=[...new Set(filtered.map(r=>r.category))].sort();
+  const tierColors={'0':'#7f1d1d','10':'#dc2626','30':'#f59e0b','60':'#eab308','90':'#3b82f6','120':'#818cf8'};
+  const datasets=EXPD_TIERS.map(t=>({label:t.label,data:cats.map(c=>filtered.filter(r=>r.category===c&&t.test(r.days)).length),backgroundColor:tierColors[t.key]+'cc',borderRadius:4}));
+  if(typeof Chart!=='undefined'){
+    if(expdChartInstance)expdChartInstance.destroy();
+    const canvas=document.getElementById('expdChart');
+    const ctx=canvas?.getContext('2d');
+    if(ctx){const isDark=document.documentElement.getAttribute('data-theme')==='dark';const textColor=isDark?'#cbd5e1':'#374151';
+    expdChartInstance=new Chart(ctx,{type:'bar',data:{labels:cats.map(c=>c.length>16?c.slice(0,14)+'…':c),datasets:datasets.filter(d=>d.data.some(v=>v>0))},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{color:textColor,font:{size:10},boxWidth:12}}},scales:{x:{stacked:true,ticks:{color:textColor,font:{size:9}},grid:{display:false}},y:{stacked:true,ticks:{color:textColor,precision:0},beginAtZero:true}}}});}}
+  // Table (top 200)
+  document.getElementById('expdRowCount').textContent=`(${filtered.length} รายการ)`;
+  const TIER_PILL={'0':'<span style="background:#7f1d1d;color:#fca5a5;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;">⚫ หมดแล้ว</span>','10':'<span style="background:var(--rd-bg);color:var(--rd-t);padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;">🔴 &lt;10ว</span>','30':'<span style="background:var(--am-bg);color:var(--am-t);padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;">🟠 10-30ว</span>','60':'<span style="background:var(--surf2);color:var(--t2);padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;">🟡 30-60ว</span>','90':'<span style="background:#1e3a5f;color:#93c5fd;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;">🔵 60-90ว</span>','120':'<span style="background:#312e5f;color:#c7d2fe;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;">🟣 90-120ว</span>'};
+  const tb=document.getElementById('expdTableBody');
+  if(!filtered.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--t3);">ไม่พบรายการ</td></tr>';return;}
+  tb.innerHTML=filtered.slice(0,200).map(r=>{const tier=getExpdTier(r.days);const dLabel=r.days<0?`หมดแล้ว ${Math.abs(r.days)}ว`:r.days===0?'วันนี้!':r.days+'ว';const dColor=r.days<=0?'var(--rd-t)':r.days<=10?'var(--rd-t)':r.days<=30?'var(--am-t)':'var(--t2)';return `<tr><td style="font-family:'Courier New',monospace;font-weight:800;font-size:11px;">${escapeHtml(r.sku)}</td><td style="font-size:11px;">${escapeHtml(r.name)}</td><td style="font-size:10px;color:var(--t3);">${escapeHtml(r.category)}</td><td style="font-size:11px;">${escapeHtml(r.location_code)}<br><span style="font-size:9px;color:var(--t3);">${escapeHtml(r.branch)}</span></td><td style="text-align:right;font-weight:800;color:var(--nv-t);">${r.quantity}</td><td style="font-size:10px;color:var(--t3);">${r.mfd_date||'-'}</td><td style="font-size:11px;font-weight:700;color:${dColor};">${r.exp_date}</td><td style="text-align:right;font-weight:800;color:${dColor};">${dLabel}</td><td>${tier?TIER_PILL[tier.key]||'':''}</td></tr>`;}).join('');
+  if(filtered.length>200)tb.innerHTML+=`<tr><td colspan="9" style="text-align:center;padding:10px;font-size:11px;color:var(--t3);">...และอีก ${filtered.length-200} รายการ — ใช้ Export เพื่อดูทั้งหมด</td></tr>`;
+}
+function setExpdTierFilter(tier){const sel=document.getElementById('expdTierFilter');if(sel)sel.value=tier;renderExpDash();}
+function exportExpDash(){
+  if(!expdAllData.length){showToast('ไม่มีข้อมูล','warn');return;}
+  const branchF=document.getElementById('expdBranch')?.value||'';const catF=document.getElementById('expdCategory')?.value||'';const tierF=document.getElementById('expdTierFilter')?.value||'';
+  const filtered=expdAllData.filter(r=>{if(branchF&&r.branch!==branchF)return false;if(catF&&r.category!==catF)return false;if(tierF){const tier=getExpdTier(r.days);if(!tier||tier.key!==tierF)return false;}return true;});
+  const esc=v=>typeof v==='string'?`"${v.replace(/"/g,'""')}"`:v??'';
+  const header='SKU,ชื่อสินค้า,หมวดสินค้า,โลเคชั่น,สาขา,จำนวน,วันผลิต,วันหมดอายุ,เหลือ(วัน),กลุ่ม';
+  const rows=filtered.map(r=>{const tier=getExpdTier(r.days);return[esc(r.sku),esc(r.name),esc(r.category),esc(r.location_code),esc(r.branch),r.quantity,esc(r.mfd_date),esc(r.exp_date),r.days,esc(tier?.label||'')].join(',');});
+  const csv=[header,...rows].join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`expiry_dashboard_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast(`⬇ Export ${filtered.length.toLocaleString()} รายการแล้ว`,'success');
+}
 let currentExpiryRuleId=null;
 function fmtSbErr(err){if(!err)return'ไม่ทราบสาเหตุ';const parts=[err.message,err.details,err.hint,err.code?`(code: ${err.code})`:null].filter(Boolean);return parts.join(' — ')||JSON.stringify(err);}
 async function loadExpiryRuleForSku(){const skuRaw=document.getElementById('exprSkuInput').value.trim().toUpperCase();const sku=skuRaw||null;document.getElementById('exprSkuInput').value=skuRaw;try{let q=sb.from('expiry_rules').select('*');q=sku?q.eq('sku',sku):q.is('sku',null);const{data,error}=await q.maybeSingle();if(error)throw error;if(data){currentExpiryRuleId=data.id;document.getElementById('exprShelfLifeInput').value=data.shelf_life_days||'';document.getElementById('exprAlert120').checked=data.alert_120!==false;document.getElementById('exprAlert90').checked=data.alert_90!==false;document.getElementById('exprAlert60').checked=data.alert_60!==false;document.getElementById('exprAlert30').checked=data.alert_30!==false;document.getElementById('exprAlert10').checked=data.alert_10!==false;document.getElementById('exprAlert0').checked=data.alert_0!==false;document.getElementById('exprNoteInput').value=data.note||'';document.getElementById('exprRuleInfo').textContent=sku?`✅ พบเงื่อนไขของ ${sku} แล้ว — แก้ไขแล้วกดบันทึกเพื่ออัปเดต`:'✅ พบค่า Default ที่ตั้งไว้แล้ว';document.getElementById('exprDeleteBtn').style.display=sku?'':'none';}else{currentExpiryRuleId=null;document.getElementById('exprShelfLifeInput').value='';['exprAlert120','exprAlert90','exprAlert60','exprAlert30','exprAlert10','exprAlert0'].forEach(id=>document.getElementById(id).checked=true);document.getElementById('exprNoteInput').value='';document.getElementById('exprRuleInfo').textContent=sku?`ยังไม่มีเงื่อนไขของ ${sku} — กรอกแล้วกดบันทึกเพื่อสร้างใหม่`:'ยังไม่มีค่า Default — กรอกแล้วกดบันทึก';document.getElementById('exprDeleteBtn').style.display='none';}}catch(err){showToast('โหลดล้มเหลว: '+fmtSbErr(err),'error',10000);console.error('loadExpiryRuleForSku:',err);}}
