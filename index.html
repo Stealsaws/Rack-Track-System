@@ -1843,7 +1843,9 @@ async function processLocationUpload(){
     for(let i=0;i<prodRows.length;i+=CHUNK){await sb.from('products').upsert(prodRows.slice(i,i+CHUNK),{onConflict:'sku',ignoreDuplicates:true});await sleep(10);}
     let success=0;const logRows=[];const errors=[];
     if(overwrite){
-      const stockRows=locUploadParsed.map(r=>{const payload={sku:r.sku,location_code:r.loc,quantity:r.qty};if(r.mfd)payload.mfd_date=r.mfd;if(r.exp)payload.exp_date=r.exp;return payload;});
+      // Dedup: รวม qty ของแถวที่มี sku+loc+mfd+exp เหมือนกันเข้าด้วยกัน (แทนที่จะส่ง 2 แถวใน batch เดียว)
+      const dedupMapOW=new Map();locUploadParsed.forEach(r=>{const k=`${r.sku}|${r.loc}|${r.mfd||''}|${r.exp||''}`;if(dedupMapOW.has(k)){dedupMapOW.get(k).qty+=r.qty;}else{dedupMapOW.set(k,{...r});}});
+      const stockRows=[...dedupMapOW.values()].map(r=>{const payload={sku:r.sku,location_code:r.loc,quantity:r.qty};if(r.mfd)payload.mfd_date=r.mfd;if(r.exp)payload.exp_date=r.exp;return payload;});
       for(let i=0;i<stockRows.length;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const{error}=await sb.from('stock_locations').upsert(chunk,{onConflict:'sku, location_code, exp_date'});if(!error){chunk.forEach(r=>logRows.push({action_type:'putaway',sku:r.sku,location_code:r.location_code,qty_change:r.quantity,qty_before:0,qty_after:r.quantity,ref_doc:'LOC_UPLOAD'}));success+=chunk.length;}else{errors.push(error.message);}showProg(`บันทึก ${Math.min(i+CHUNK,stockRows.length)}/${total}...`,10+(i/stockRows.length)*80);await sleep(20);}
     }else{
       showProg('ดึงสต็อคเดิม...',10);
@@ -1851,7 +1853,9 @@ async function processLocationUpload(){
       let existing=[],from2=0;
       while(true){const{data,error}=await sb.from('stock_locations').select('sku,location_code,exp_date,quantity').range(from2,from2+999);if(error)break;if(!data?.length)break;existing=existing.concat(data.filter(r=>skuSet.has(r.sku)&&locSet.has(r.location_code)));if(data.length<1000)break;from2+=1000;await sleep(10);}
       const exMap={};existing.forEach(r=>{const k=`${r.sku}__${r.location_code}__${r.exp_date||'null'}`;exMap[k]=r.quantity;});
-      const stockRows=locUploadParsed.map(r=>{const key=`${r.sku}__${r.loc}__${r.exp||'null'}`;const before=exMap[key]||0;const newQty=before+r.qty;
+      // Dedup: รวม qty ของแถวที่ sku+loc+mfd+exp เหมือนกันก่อนส่ง batch
+      const dedupMapAdd=new Map();locUploadParsed.forEach(r=>{const k=`${r.sku}|${r.loc}|${r.mfd||''}|${r.exp||''}`;if(dedupMapAdd.has(k)){dedupMapAdd.get(k).qty+=r.qty;}else{dedupMapAdd.set(k,{...r});}});
+      const stockRows=[...dedupMapAdd.values()].map(r=>{const key=`${r.sku}__${r.loc}__${r.exp||'null'}`;const before=exMap[key]||0;const newQty=before+r.qty;
         const payload={sku:r.sku,location_code:r.loc,quantity:newQty,_before:before};
         if(r.mfd)payload.mfd_date=r.mfd;if(r.exp)payload.exp_date=r.exp;return payload;});
       for(let i=0;i<stockRows.length;i+=CHUNK){const chunk=stockRows.slice(i,i+CHUNK);const upsertChunk=chunk.map(r=>{const p={sku:r.sku,location_code:r.location_code,quantity:r.quantity};if(r.mfd_date)p.mfd_date=r.mfd_date;if(r.exp_date)p.exp_date=r.exp_date;return p;});const{error}=await sb.from('stock_locations').upsert(upsertChunk,{onConflict:'sku, location_code, exp_date'});if(!error){chunk.forEach(r=>logRows.push({action_type:'putaway',sku:r.sku,location_code:r.location_code,qty_change:r.quantity-r._before,qty_before:r._before,qty_after:r.quantity,ref_doc:'LOC_UPLOAD'}));success+=chunk.length;}else{errors.push(error.message);}showProg(`บันทึก ${Math.min(i+CHUNK,stockRows.length)}/${total}...`,30+(i/stockRows.length)*60);await sleep(20);}
