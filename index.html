@@ -1582,8 +1582,6 @@ async function loadOverview(){
     const branchSel=document.getElementById('ovBranchFilter');
     if(branchSel){const branches=[...new Set((ovLocationsCache).map(l=>l.branch_code||'HQ'))].sort();branchSel.innerHTML='<option value="">ทุกสาขา</option>'+branches.map(b=>`<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');}
     const tsEl=document.getElementById('overviewLastUpdate');if(tsEl)tsEl.textContent='อัปเดต: '+new Date().toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});
-    showOvProg('สร้างกราฟ...',80);await new Promise(r=>requestAnimationFrame(r));
-    renderOverviewChart();
     showOvProg('แสดงผล...',90);await new Promise(r=>requestAnimationFrame(r));
     ovFiltered=[...ovAllData];filterOverview();
     showOvProg('✅ เสร็จสิ้น!',100);setTimeout(hideOvProg,1500);
@@ -1595,7 +1593,7 @@ async function loadOverview(){
 
 // ✅ FIX 1: renderOverviewChart — IDs now exist in HTML
 function renderOverviewChart(){
-  const skuQty={};ovAllData.forEach(r=>{skuQty[r.sku]=(skuQty[r.sku]||0)+r.quantity;});
+  const skuQty={};ovFiltered.forEach(r=>{skuQty[r.sku]=(skuQty[r.sku]||0)+r.quantity;});
   const sorted=Object.entries(skuQty).sort((a,b)=>b[1]-a[1]).slice(0,15);
   const chartCon=document.getElementById('ovChartContainer'),chartEmpty=document.getElementById('ovChartEmpty');
   if(!sorted.length){if(chartCon)chartCon.style.display='none';if(chartEmpty)chartEmpty.style.display='';return;}
@@ -1621,7 +1619,7 @@ function filterOverview(){
     if(stockF==='expiring'&&!isExpiringSoon(r.exp_date,30))return false;
     return true;
   });
-  renderOverviewTable();
+  renderOverviewTable();renderOverviewChart();
 }
 function renderOverviewTable(){
   const tb=document.getElementById('ovTableBody'),countEl=document.getElementById('ovTableCount');
