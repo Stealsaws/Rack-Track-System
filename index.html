@@ -694,14 +694,19 @@ async function doLogin(){
   const un=document.getElementById('loginUser').value.trim().toLowerCase(),pw=document.getElementById('loginPass').value,err=document.getElementById('loginError'),btn=document.getElementById('loginBtn');
   err.style.display='none';if(!un||!pw){err.textContent='กรุณากรอก username และ password';err.style.display='';return;}
   setButtonLoading(btn,true,'⏳ กำลังเข้าสู่ระบบ...');
-  try{const hash=await sha256(pw);const{data,error}=await sb.from('users').select('*').eq('username',un).eq('password_hash',hash).eq('is_active',true).maybeSingle();if(error)throw error;if(!data){err.textContent='Username หรือ Password ไม่ถูกต้อง';err.style.display='';return;}currentUser=data;sessionStorage.setItem('rts_user',JSON.stringify(data));
-    // 🔒 ระยะเปลี่ยนผ่านสู่ Supabase Auth จริง: พยายามสร้าง session จริงคู่ขนาน (ไม่กระทบ flow เดิมถ้าล้มเหลว)
-    try{await sb.auth.signInWithPassword({email:`${un.toLowerCase()}@rts.internal`,password:'ChangeMe2026!'});}catch(authErr){console.warn('Supabase Auth parallel session (non-blocking):',authErr?.message);}
-    startApp();}
+  try{
+    const{error:authErr}=await sb.auth.signInWithPassword({email:`${un}@rts.internal`,password:'ChangeMe2026!'});
+    if(authErr){err.textContent='Username หรือ Password ไม่ถูกต้อง';err.style.display='';return;}
+    const hash=await sha256(pw);
+    const{data,error}=await sb.from('users').select('*').eq('username',un).eq('password_hash',hash).eq('is_active',true).maybeSingle();
+    if(error)throw error;
+    if(!data){await sb.auth.signOut();err.textContent='Username หรือ Password ไม่ถูกต้อง';err.style.display='';return;}
+    currentUser=data;sessionStorage.setItem('rts_user',JSON.stringify(data));startApp();
+  }
   catch(e){err.textContent='เกิดข้อผิดพลาด: '+e.message;err.style.display='';}
   finally{setButtonLoading(btn,false,'เข้าสู่ระบบ');}
 }
-function doLogout(){sessionStorage.removeItem('rts_user');currentUser=null;try{sb.auth.signOut();}catch(e){}document.getElementById('appScreen').style.display='none';document.getElementById('loginScreen').style.display='flex';document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';}
+function doLogout(){sessionStorage.removeItem('rts_user');currentUser=null;document.getElementById('appScreen').style.display='none';document.getElementById('loginScreen').style.display='flex';document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';}
 function toggleUserMenu(){const m=document.getElementById('userMenu');const isOpen=m.style.display==='block';if(isOpen){m.style.display='none';document.removeEventListener('click',userMenuOutside);}else{m.style.display='block';const nm=document.getElementById('userMenuName');const rm=document.getElementById('userMenuRole');if(nm)nm.textContent=currentUser.display_name||currentUser.username||'-';if(rm)rm.textContent=`${currentUser.role==='admin'?'👑 Admin':currentUser.role==='manager'?'⭐ Manager':'👤 Staff'} · ${currentUser.branch_code||'HQ'}`;setTimeout(()=>document.addEventListener('click',userMenuOutside),50);}}
 function userMenuOutside(e){const m=document.getElementById('userMenu'),btn=document.getElementById('userAva');if(m&&!m.contains(e.target)&&btn&&!btn.contains(e.target)){m.style.display='none';document.removeEventListener('click',userMenuOutside);}}
 
