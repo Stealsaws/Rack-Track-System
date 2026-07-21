@@ -695,12 +695,23 @@ async function doLogin(){
   err.style.display='none';if(!un||!pw){err.textContent='กรุณากรอก username และ password';err.style.display='';return;}
   setButtonLoading(btn,true,'⏳ กำลังเข้าสู่ระบบ...');
   try{
-    const{error:authErr}=await sb.auth.signInWithPassword({email:`${un}@rts.internal`,password:'ChangeMe2026!'});
-    if(authErr){err.textContent='Username หรือ Password ไม่ถูกต้อง';err.style.display='';return;}
+    const email=`${un}@rts.internal`;
+    // ทางลัด: ถ้า user คนนี้เคย migrate password จริงเข้า Supabase Auth แล้ว (จาก login ครั้งก่อน) ลอง login ตรงเลย
+    let authed=false;
+    const{error:directErr}=await sb.auth.signInWithPassword({email,password:pw});
+    if(!directErr)authed=true;
+    if(!authed){
+      // ยังไม่เคย migrate: ใช้ temp password กลางเพื่อยืนยันตัวตนก่อน แล้วเช็ค password จริงจาก hash เดิม
+      const{error:tempErr}=await sb.auth.signInWithPassword({email,password:'ChangeMe2026!'});
+      if(tempErr){err.textContent='Username หรือ Password ไม่ถูกต้อง';err.style.display='';return;}
+      authed=true;
+    }
     const hash=await sha256(pw);
     const{data,error}=await sb.from('users').select('*').eq('username',un).eq('password_hash',hash).eq('is_active',true).maybeSingle();
     if(error)throw error;
     if(!data){await sb.auth.signOut();err.textContent='Username หรือ Password ไม่ถูกต้อง';err.style.display='';return;}
+    // password จริงถูกต้อง → ถ้ายังไม่เคย migrate ให้ตั้ง password นี้เป็น password จริงใน Supabase Auth เลย (ครั้งต่อไปจะเข้าทางลัดได้)
+    if(directErr){try{await sb.auth.updateUser({password:pw});}catch(migErr){console.warn('Password migration (non-blocking):',migErr?.message);}}
     currentUser=data;sessionStorage.setItem('rts_user',JSON.stringify(data));startApp();
   }
   catch(e){err.textContent='เกิดข้อผิดพลาด: '+e.message;err.style.display='';}
