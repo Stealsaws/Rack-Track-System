@@ -1173,7 +1173,24 @@ function startScannerCamera(onResult){
   if(needsZXingMode){const tip=document.getElementById('scannerLastResult')||document.createElement('p');tip.style.cssText='color:#fbbf24;font-size:11px;text-align:center;padding:4px 8px;';tip.textContent='💡 จ่อบาร์โค้ดให้ชัด แสงดี รอ 1-2 วิ กล้องถึงจะโฟกัส';el.parentNode.insertBefore(tip,el);}
   const showCamErr=(err)=>{const msg=(err&&err.message)||String(err)||'ไม่ทราบสาเหตุ';el.innerHTML=`<p style="color:#fff;font-size:12px;text-align:center;padding:24px;">เปิดกล้องไม่ได้<br><span style="color:#f87171;font-size:10px;">${escapeHtml(msg)}</span><br>ลองพิมพ์รหัสแทนครับ</p>`;console.warn('Scanner error:',err);};
   try{
-    scannerInstance=new Html5Qrcode('scannerReader');
+    scannerInstance=new Html5Qrcode('scannerReader',{formatsToSupport:[
+      Html5QrcodeSupportedFormats.QR_CODE,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.ITF,
+      Html5QrcodeSupportedFormats.CODABAR,
+      Html5QrcodeSupportedFormats.DATA_MATRIX,
+      Html5QrcodeSupportedFormats.PDF_417,
+      Html5QrcodeSupportedFormats.AZTEC,
+      Html5QrcodeSupportedFormats.MAXICODE,
+      Html5QrcodeSupportedFormats.RSS_14,
+      Html5QrcodeSupportedFormats.RSS_EXPANDED
+    ]});
     Html5Qrcode.getCameras().then(cameras=>{
       if(!cameras||!cameras.length){el.innerHTML='<p style="color:#fff;font-size:12px;text-align:center;padding:32px;">ไม่พบกล้องในอุปกรณ์นี้</p>';return;}
       const cam=cameras.find(c=>c.label.toLowerCase().includes('back'))||cameras[cameras.length-1];
