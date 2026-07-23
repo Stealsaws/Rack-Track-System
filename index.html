@@ -1163,17 +1163,26 @@ const SCANNER_CONFIGS={
   'exprule-sku':{title:'📦 สแกน SKU ตั้งค่าหมดอายุ',subtitle:'จ่อกล้องที่บาร์โค้ดสินค้า',onResult:(code)=>{const el=document.getElementById('exprSkuInput');if(el)el.value=code.toUpperCase();closeScannerModal();loadExpiryRuleForSku();}}
 };
 function openScanner(context){scannerContext=context;const cfg=SCANNER_CONFIGS[context];if(!cfg)return;document.getElementById('scannerModalTitle').textContent=cfg.title;document.getElementById('scannerModalSubtitle').textContent=cfg.subtitle;document.getElementById('scannerManualInput').value='';document.getElementById('scannerLastResult').style.display='none';document.getElementById('scannerModal').classList.add('show');setTimeout(()=>startScannerCamera(cfg.onResult),200);}
-function startScannerCamera(onResult){
+async function startScannerCamera(onResult){
   if(typeof Html5Qrcode==='undefined'){showToast('กำลังโหลดระบบกล้อง...','info');return;}
   const el=document.getElementById('scannerReader');
   el.innerHTML='';
   const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-  const hasBarcodeDetector=typeof BarcodeDetector!=='undefined';
-  const needsZXingMode=true;// ZXing is now forced universally (useBarCodeDetectorIfSupported:false) since native BarcodeDetector was found to only support QR on some devices
+  // เช็คจริงว่ากล้อง native ของเครื่องนี้รองรับบาร์โค้ด 1D (ไม่ใช่แค่ QR) หรือเปล่า แทนที่จะปิดไปเลยทุกเครื่อง
+  // ถ้ารองรับจริง ใช้ native (เร็วกว่ามาก ใช้ชิปประมวลผลภาพของเครื่อง) แทน ZXing (JS ล้วน ช้ากว่า)
+  let nativeSupports1D=false;
+  try{
+    if(typeof BarcodeDetector!=='undefined'&&BarcodeDetector.getSupportedFormats){
+      const supported=await BarcodeDetector.getSupportedFormats();
+      const need=['code_128','ean_13','ean_8','upc_a','upc_e'];
+      nativeSupports1D=need.some(f=>supported.includes(f));
+    }
+  }catch(e){nativeSupports1D=false;}
+  const needsZXingMode=!nativeSupports1D;// บังคับใช้ ZXing เฉพาะเครื่องที่ native ไม่รองรับบาร์โค้ด 1D จริงๆ
   if(needsZXingMode){const tip=document.getElementById('scannerLastResult')||document.createElement('p');tip.style.cssText='color:#fbbf24;font-size:11px;text-align:center;padding:4px 8px;';tip.textContent='💡 จ่อบาร์โค้ดให้ชัด แสงดี รอ 1-2 วิ กล้องถึงจะโฟกัส';el.parentNode.insertBefore(tip,el);}
   const showCamErr=(err)=>{const msg=(err&&err.message)||String(err)||'ไม่ทราบสาเหตุ';el.innerHTML=`<p style="color:#fff;font-size:12px;text-align:center;padding:24px;">เปิดกล้องไม่ได้<br><span style="color:#f87171;font-size:10px;">${escapeHtml(msg)}</span><br>ลองพิมพ์รหัสแทนครับ</p>`;console.warn('Scanner error:',err);};
   try{
-    scannerInstance=new Html5Qrcode('scannerReader',{useBarCodeDetectorIfSupported:false,formatsToSupport:[
+    scannerInstance=new Html5Qrcode('scannerReader',{useBarCodeDetectorIfSupported:!needsZXingMode,formatsToSupport:[
       Html5QrcodeSupportedFormats.QR_CODE,
       Html5QrcodeSupportedFormats.CODE_128,
       Html5QrcodeSupportedFormats.CODE_39,
