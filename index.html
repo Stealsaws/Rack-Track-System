@@ -1228,11 +1228,21 @@ async function startScannerCamera(onResult){
         try{scannerInstance.applyVideoConstraints({advanced:[{focusMode:'continuous'}]});}catch(e){}
         // iOS: add a "tap to refocus" overlay since continuous autofocus is unreliable on Safari
         if(needsZXingMode){
+          const btnRow=document.createElement('div');
+          btnRow.style.cssText='position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:8px;z-index:10;';
           const refocusBtn=document.createElement('button');
           refocusBtn.textContent='🔍 แตะเพื่อโฟกัส';
-          refocusBtn.style.cssText='position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:6px 16px;font-size:11px;cursor:pointer;z-index:10;';
+          refocusBtn.style.cssText='background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:6px 16px;font-size:11px;cursor:pointer;';
           refocusBtn.onclick=()=>{try{scannerInstance.applyVideoConstraints({advanced:[{focusMode:'auto'},{focusMode:'continuous'}]});}catch(e){}};
-          el.style.position='relative';el.appendChild(refocusBtn);
+          btnRow.appendChild(refocusBtn);
+          // ปุ่มไฟฉาย: ช่วยเรื่องแสงไม่พอ ซึ่งเป็นสาเหตุหลักที่ 1D บาร์โค้ดอ่านพลาดในที่แสงน้อย/ไม่สม่ำเสมอ
+          let torchOn=false;
+          const torchBtn=document.createElement('button');
+          torchBtn.textContent='🔦 ไฟฉาย';
+          torchBtn.style.cssText='background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:6px 16px;font-size:11px;cursor:pointer;';
+          torchBtn.onclick=async()=>{try{torchOn=!torchOn;await scannerInstance.applyVideoConstraints({advanced:[{torch:torchOn}]});torchBtn.textContent=torchOn?'🔦 ปิดไฟฉาย':'🔦 ไฟฉาย';}catch(e){showToast('อุปกรณ์นี้ไม่รองรับไฟฉาย','info',2000);}};
+          btnRow.appendChild(torchBtn);
+          el.style.position='relative';el.appendChild(btnRow);
         }
       }).catch(err=>{
         // fallback: try without exact constraint (some older iOS models need this)
