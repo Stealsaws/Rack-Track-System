@@ -1211,7 +1211,7 @@ async function startScannerCamera(onResult){
       // Android: wide qrbox + higher fps works better with BarcodeDetector
       const config=needsZXingMode
         ?{fps:12,qrbox:{width:300,height:180},aspectRatio:1.33,
-           videoConstraints:{facingMode:{exact:'environment'},width:{ideal:1920},height:{ideal:1080}}}
+           videoConstraints:{facingMode:{exact:'environment'},width:{ideal:1280},height:{ideal:720}}}
         :{fps:15,qrbox:{width:260,height:160},aspectRatio:1.5,
            videoConstraints:{facingMode:{exact:'environment'}}};
       scannerInstance.start(
