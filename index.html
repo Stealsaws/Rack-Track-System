@@ -277,7 +277,7 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;">
           <div class="rts-kc" onclick="switchTab('report')"><span style="font-size:18px;display:block;margin-bottom:9px;">📦</span><div style="font-size:22px;font-weight:900;color:var(--t1);" id="kpiSkuCount">-</div><div style="font-size:10px;color:var(--t3);margin-top:2px;">SKU ทั้งหมด</div><span class="pill pill-g" id="kpiStockTotal" style="margin-top:7px;">รวมสต็อค - ชิ้น</span></div>
           <div class="rts-kc" onclick="switchTab('pick')"><span style="font-size:18px;display:block;margin-bottom:9px;">🛒</span><div style="font-size:22px;font-weight:900;color:var(--am-t);" id="kpiPickPending">-</div><div style="font-size:10px;color:var(--t3);margin-top:2px;">ใบเบิกรอจัด</div><span class="pill pill-o" style="margin-top:7px;">กดเพื่อดู</span></div>
-          <div class="rts-kc" onclick="switchTab('expiry')"><span style="font-size:18px;display:block;margin-bottom:9px;">⏰</span><div style="font-size:22px;font-weight:900;color:var(--rd-t);" id="kpiExpiring">-</div><div style="font-size:10px;color:var(--t3);margin-top:2px;">ใกล้หมดอายุ</div><span class="pill pill-r" style="margin-top:7px;">Lot ต้องดำเนินการ</span></div>
+          <div class="rts-kc" onclick="switchTab('expmgmt');switchExpTab('list')"><span style="font-size:18px;display:block;margin-bottom:9px;">⏰</span><div style="font-size:22px;font-weight:900;color:var(--rd-t);" id="kpiExpiring">-</div><div style="font-size:10px;color:var(--t3);margin-top:2px;">ใกล้หมดอายุ</div><span class="pill pill-r" style="margin-top:7px;">Lot ต้องดำเนินการ</span></div>
           <div class="rts-kc" onclick="switchTab('count')"><span style="font-size:18px;display:block;margin-bottom:9px;">🔢</span><div style="font-size:22px;font-weight:900;color:var(--pu-t);" id="kpiPendingApprove">-</div><div style="font-size:10px;color:var(--t3);margin-top:2px;">รออนุมัติ</div><span class="pill pill-p" style="margin-top:7px;">Count + Markdown</span></div>
         </div>
         <div id="stockValueSection" style="background:var(--gn-bg);border:1.5px solid var(--gn-t);border-radius:12px;padding:14px;margin-bottom:14px;">
@@ -292,7 +292,7 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
             <div><p style="font-size:11px;font-weight:800;color:var(--t2);margin-bottom:6px;">แยกตามหมวดสินค้า (ต้นทุน)</p><div id="svByCategory" style="display:flex;flex-direction:column;gap:4px;"><p style="font-size:11px;color:var(--t3);">⏳...</p></div></div>
           </div>
         </div>
-        <div onclick="switchTab('expiry')" style="cursor:pointer;background:var(--surf);border:1.5px solid var(--bdr);border-radius:12px;padding:14px;margin-bottom:14px;">
+        <div onclick="switchTab('expmgmt');switchExpTab('list')" style="cursor:pointer;background:var(--surf);border:1.5px solid var(--bdr);border-radius:12px;padding:14px;margin-bottom:14px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="font-size:13px;font-weight:800;color:var(--t1);margin:0;">⏰ สรุปสินค้าใกล้หมดอายุ</h3><span style="font-size:10px;color:var(--nv-t);">ดูทั้งหมด →</span></div>
           <div id="dashExpirySummary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
             <div style="background:#3a0a0a;border-radius:8px;padding:8px;text-align:center;"><p style="font-size:9px;color:#fca5a5;font-weight:700;">⚫ หมดแล้ว</p><p id="dashExp0" style="font-size:18px;font-weight:900;color:#fca5a5;">-</p></div>
@@ -306,7 +306,7 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
         <div id="dashExpiryAlert" style="display:none;background:var(--rd-bg);border:1.5px solid var(--rd-t);border-radius:12px;padding:14px;margin-bottom:14px;">
           <h3 style="font-size:13px;font-weight:800;color:var(--rd-t);margin-bottom:8px;">🚨 ต้องดำเนินการด่วน</h3>
           <div id="dashExpiryList" style="display:flex;flex-direction:column;gap:6px;"></div>
-          <button onclick="switchTab('expiry')" class="card-btn" style="margin-top:8px;">ดูทั้งหมด →</button>
+          <button onclick="switchTab('expmgmt');switchExpTab('list')" class="card-btn" style="margin-top:8px;">ดูทั้งหมด →</button>
         </div>
         <div id="dashApprovalSection" style="display:none;background:var(--am-bg);border:1.5px solid var(--am-t);border-radius:12px;padding:14px;margin-bottom:14px;">
           <h3 style="font-size:13px;font-weight:800;color:var(--am-t);margin-bottom:8px;">⏳ รออนุมัติ</h3>
@@ -451,13 +451,48 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
       </section>
 
       <!-- LOTS -->
-      <section id="page-lots" style="display:none;max-width:960px;margin:0 auto;">
-        <div class="rts-card" style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div><h2 style="font-size:15px;font-weight:900;color:var(--t1);margin:0;">📦 จัดการ Lot สินค้า</h2><p style="font-size:11px;color:var(--t3);">บันทึกวันผลิต/หมดอายุแยก Lot</p></div><button onclick="openAddLotModal()" class="abtn btn-solid-or">+ เพิ่ม Lot</button></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><input type="text" id="lotSkuFilter" placeholder="กรอง SKU..." oninput="loadLots()" autocapitalize="characters" class="rts-input" style="width:110px;text-transform:uppercase;"><select id="lotStatusFilter" onchange="loadLots()" class="rts-select" style="width:auto;"><option value="active">ใช้งานอยู่</option><option value="">ทั้งหมด</option><option value="markdown">ลดราคา</option><option value="return">คืน Supplier</option><option value="destroy">ทำลาย</option></select><button onclick="loadLots()" class="card-btn">↻</button></div></div>
-        <div class="rts-card"><div style="overflow-x:auto;"><table class="rts-table"><thead><tr><th>SKU</th><th>Lot No.</th><th>โลเคชั่น</th><th style="text-align:right;">จำนวน</th><th>MFD</th><th>EXP</th><th style="text-align:right;">เหลือ(วัน)</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="lotTableBody"><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--t3);">กำลังโหลด...</td></tr></tbody></table></div><p id="lotCount" style="font-size:11px;color:var(--t3);margin-top:8px;"></p></div>
-      </section>
+      <!-- EXPIRY MANAGEMENT (รวม Lot/หมดอายุ/เงื่อนไข/Dashboard เป็นหน้าเดียว) -->
+      <section id="page-expmgmt" style="display:none;max-width:960px;margin:0 auto;">
+        <div class="rts-card" style="margin-bottom:12px;padding:6px;"><div style="display:flex;gap:4px;">
+          <button onclick="switchExpTab('overview')" id="exptab-overview" class="abtn exptab-btn" style="flex:1;padding:10px;font-size:12px;">📊 ภาพรวม</button>
+          <button onclick="switchExpTab('list')" id="exptab-list" class="abtn exptab-btn" style="flex:1;padding:10px;font-size:12px;">📋 รายการ</button>
+          <button onclick="switchExpTab('settings')" id="exptab-settings" class="abtn exptab-btn" style="flex:1;padding:10px;font-size:12px;">⚙️ ตั้งค่า</button>
+        </div></div>
 
-      <!-- EXPIRY -->
-      <section id="page-expiry" style="display:none;max-width:760px;margin:0 auto;">
+        <!-- แท็บ: ภาพรวม (เดิม page-expdash) -->
+        <div id="exppanel-overview" style="display:none;max-width:960px;margin:0 auto;">
+        <div class="rts-card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div><h2 style="font-size:15px;font-weight:900;color:var(--t1);margin:0;">📊 ภาพรวมสินค้ามีวันหมดอายุ</h2><p style="font-size:11px;color:var(--t3);">ภาพรวมสินค้าที่มีวันหมดอายุทั้งหมดในระบบ</p></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <select id="expdBranch" class="rts-select" style="font-size:12px;padding:4px 8px;width:auto;" onchange="renderExpDash()"><option value="">ทุกสาขา</option></select>
+            <select id="expdCategory" class="rts-select" style="font-size:12px;padding:4px 8px;width:auto;" onchange="renderExpDash()"><option value="">ทุกหมวด</option></select>
+            <button onclick="loadExpDash()" class="card-btn">↻</button>
+            <button onclick="exportExpDash()" class="abtn btn-solid-nv" style="font-size:11px;padding:6px 10px;">⬇ Export</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;" id="expdKpiGrid">
+          <div style="background:#3a0a0a;border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('0')"><p style="font-size:10px;color:#fca5a5;font-weight:700;">⚫ หมดอายุแล้ว</p><p id="expdK0" style="font-size:28px;font-weight:900;color:#fca5a5;">-</p><p style="font-size:9px;color:#fca5a5;">รายการ</p></div>
+          <div style="background:var(--rd-bg);border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('10')"><p style="font-size:10px;color:var(--rd-t);font-weight:700;">🔴 น้อยกว่า 10 วัน</p><p id="expdK10" style="font-size:28px;font-weight:900;color:var(--rd-t);">-</p><p style="font-size:9px;color:var(--rd-t);">รายการ</p></div>
+          <div style="background:var(--am-bg);border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('30')"><p style="font-size:10px;color:var(--am-t);font-weight:700;">🟠 10–30 วัน</p><p id="expdK30" style="font-size:28px;font-weight:900;color:var(--am-t);">-</p><p style="font-size:9px;color:var(--am-t);">รายการ</p></div>
+          <div style="background:var(--surf2);border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('60')"><p style="font-size:10px;color:var(--t2);font-weight:700;">🟡 30–60 วัน</p><p id="expdK60" style="font-size:28px;font-weight:900;color:var(--t2);">-</p><p style="font-size:9px;color:var(--t2);">รายการ</p></div>
+          <div style="background:#1e3a5f;border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('90')"><p style="font-size:10px;color:#93c5fd;font-weight:700;">🔵 60–90 วัน</p><p id="expdK90" style="font-size:28px;font-weight:900;color:#93c5fd;">-</p><p style="font-size:9px;color:#93c5fd;">รายการ</p></div>
+          <div style="background:#312e5f;border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('120')"><p style="font-size:10px;color:#c7d2fe;font-weight:700;">🟣 90–120 วัน</p><p id="expdK120" style="font-size:28px;font-weight:900;color:#c7d2fe;">-</p><p style="font-size:9px;color:#c7d2fe;">รายการ</p></div>
+        </div>
+        <div class="rts-card" style="margin-bottom:12px;"><p style="font-size:11px;font-weight:800;color:var(--t2);margin-bottom:10px;">📈 กระจายตามหมวดสินค้า (จำนวนรายการ)</p><div style="overflow-x:auto;"><canvas id="expdChart" height="120"></canvas></div></div>
+        <div class="rts-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+            <span class="card-title">รายการสินค้า <span id="expdRowCount" style="font-size:11px;color:var(--t3);"></span></span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <select id="expdTierFilter" class="rts-select" style="font-size:11px;padding:4px 8px;width:auto;" onchange="renderExpDash()"><option value="">ทุกกลุ่ม</option><option value="0">⚫ หมดแล้ว</option><option value="10">🔴 &lt;10 วัน</option><option value="30">🟠 10-30 วัน</option><option value="60">🟡 30-60 วัน</option><option value="90">🔵 60-90 วัน</option><option value="120">🟣 90-120 วัน</option></select>
+              <input id="expdSearch" class="rts-input" placeholder="ค้นหา SKU/ชื่อ..." oninput="renderExpDash()" style="font-size:11px;padding:4px 8px;width:150px;">
+            </div>
+          </div>
+          <div style="overflow-x:auto;max-height:440px;"><table class="rts-table"><thead><tr><th>SKU</th><th>ชื่อสินค้า</th><th>หมวด</th><th>โลเคชั่น</th><th style="text-align:right;">จำนวน</th><th>MFD</th><th>EXP</th><th style="text-align:right;">เหลือ (วัน)</th><th>กลุ่ม</th></tr></thead><tbody id="expdTableBody"><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--t3);">กำลังโหลด...</td></tr></tbody></table></div>
+        </div>
+        </div>
+
+        <!-- แท็บ: รายการ (เดิม page-expiry + page-lots) -->
+        <div id="exppanel-list" style="display:none;max-width:760px;margin:0 auto;">
         <div class="rts-card" style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><h2 style="font-size:15px;font-weight:900;color:var(--t1);margin:0;">⏰ แจ้งเตือนสินค้าหมดอายุ</h2><p style="font-size:11px;color:var(--t3);">เกณฑ์ 120 / 90 / 60 / 30 / 10 / 0 วัน</p></div><button onclick="loadExpiryAlert()" id="expiryRefreshBtn" class="card-btn">↻ รีเฟรช</button></div></div>
         <div id="expiry0Section" style="display:none;background:#3a0a0a;border:2px solid #7f1d1d;border-radius:12px;padding:14px;margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="font-size:13px;font-weight:800;color:#fca5a5;margin:0;">⚫ หมดอายุแล้ว</h3><div style="display:flex;gap:6px;align-items:center;"><span id="expiry0Count" class="pill pill-r"></span><button onclick="selectAllInBucket('0','return_destroy_0')" class="abtn" style="font-size:10px;padding:4px 8px;background:var(--surf);border-color:#7f1d1d;color:#fca5a5;">📄 เลือกทั้งหมด</button></div></div><div id="expiry0List" style="display:flex;flex-direction:column;gap:8px;"></div></div>
         <div id="expiry10Section" style="display:none;background:var(--rd-bg);border:2px solid var(--rd-t);border-radius:12px;padding:14px;margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="font-size:13px;font-weight:800;color:var(--rd-t);margin:0;">🔴 เหลือน้อยกว่า 10 วัน</h3><div style="display:flex;gap:6px;align-items:center;"><span id="expiry10Count" class="pill pill-r"></span><button onclick="selectAllInBucket('10','return_destroy_10')" class="abtn" style="font-size:10px;padding:4px 8px;background:var(--surf);border-color:var(--rd-t);color:var(--rd-t);">📄 เลือกทั้งหมด</button></div></div><div id="expiry10List" style="display:flex;flex-direction:column;gap:8px;"></div></div>
@@ -466,11 +501,15 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
         <div id="expiry90Section" style="display:none;background:#1e3a5f;border:2px solid #3b82f6;border-radius:12px;padding:14px;margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="font-size:13px;font-weight:800;color:#93c5fd;margin:0;">🔵 เหลือ 60–90 วัน</h3><div style="display:flex;gap:6px;align-items:center;"><span id="expiry90Count" class="pill pill-b"></span><button onclick="selectAllInBucket('90','markdown_90')" class="abtn" style="font-size:10px;padding:4px 8px;background:var(--surf);border-color:#3b82f6;color:#93c5fd;">📄 เลือกทั้งหมด</button></div></div><div id="expiry90List" style="display:flex;flex-direction:column;gap:8px;"></div></div>
         <div id="expiry120Section" style="display:none;background:#312e5f;border:2px solid #818cf8;border-radius:12px;padding:14px;margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="font-size:13px;font-weight:800;color:#c7d2fe;margin:0;">🟣 เหลือ 90–120 วัน</h3><div style="display:flex;gap:6px;align-items:center;"><span id="expiry120Count" class="pill pill-b"></span><button onclick="selectAllInBucket('120','markdown_120')" class="abtn" style="font-size:10px;padding:4px 8px;background:var(--surf);border-color:#818cf8;color:#c7d2fe;">📄 เลือกทั้งหมด</button></div></div><div id="expiry120List" style="display:flex;flex-direction:column;gap:8px;"></div></div>
         <div id="expiryAllOk" style="display:none;background:var(--gn-bg);border:1.5px solid var(--gn);border-radius:12px;padding:24px;text-align:center;margin-bottom:12px;"><p style="font-weight:800;color:var(--gn-t);">✅ ไม่มีสินค้าที่ต้องดำเนินการ</p></div>
-        <div class="rts-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><span class="card-title">📋 คำขอลดราคา/คืน/ทำลาย</span><select id="mdStatusFilter" onchange="loadMarkdownRequests()" class="rts-select" style="width:auto;font-size:11px;padding:4px 8px;"><option value="pending">รออนุมัติ</option><option value="approved">อนุมัติแล้ว</option><option value="done">เสร็จแล้ว</option><option value="">ทั้งหมด</option></select></div><div id="markdownList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;"><p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">กำลังโหลด...</p></div></div>
-      </section>
+        <div class="rts-card" style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><span class="card-title">📋 คำขอลดราคา/คืน/ทำลาย</span><select id="mdStatusFilter" onchange="loadMarkdownRequests()" class="rts-select" style="width:auto;font-size:11px;padding:4px 8px;"><option value="pending">รออนุมัติ</option><option value="approved">อนุมัติแล้ว</option><option value="done">เสร็จแล้ว</option><option value="">ทั้งหมด</option></select></div><div id="markdownList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;"><p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">กำลังโหลด...</p></div></div>
+        <details style="margin-bottom:12px;"><summary style="cursor:pointer;font-weight:800;font-size:13px;color:var(--t1);padding:8px 0;">📦 จัดการ Lot สินค้า (แยกรายล็อตด้วยตนเอง)</summary>
+        <div class="rts-card" style="margin-top:8px;margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><p style="font-size:11px;color:var(--t3);margin:0;">บันทึกวันผลิต/หมดอายุแยก Lot</p><button onclick="openAddLotModal()" class="abtn btn-solid-or">+ เพิ่ม Lot</button></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><input type="text" id="lotSkuFilter" placeholder="กรอง SKU..." oninput="loadLots()" autocapitalize="characters" class="rts-input" style="width:110px;text-transform:uppercase;"><select id="lotStatusFilter" onchange="loadLots()" class="rts-select" style="width:auto;"><option value="active">ใช้งานอยู่</option><option value="">ทั้งหมด</option><option value="markdown">ลดราคา</option><option value="return">คืน Supplier</option><option value="destroy">ทำลาย</option></select><button onclick="loadLots()" class="card-btn">↻</button></div></div>
+        <div class="rts-card"><div style="overflow-x:auto;"><table class="rts-table"><thead><tr><th>SKU</th><th>Lot No.</th><th>โลเคชั่น</th><th style="text-align:right;">จำนวน</th><th>MFD</th><th>EXP</th><th style="text-align:right;">เหลือ(วัน)</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="lotTableBody"><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--t3);">กำลังโหลด...</td></tr></tbody></table></div><p id="lotCount" style="font-size:11px;color:var(--t3);margin-top:8px;"></p></div>
+        </details>
+        </div>
 
-      <!-- EXPIRY RULES -->
-      <section id="page-exprules" style="display:none;max-width:760px;margin:0 auto;">
+        <!-- แท็บ: ตั้งค่า (เดิม page-exprules) -->
+        <div id="exppanel-settings" style="display:none;max-width:760px;margin:0 auto;">
         <div class="rts-card" style="margin-bottom:12px;"><h2 style="font-size:15px;font-weight:900;color:var(--t1);margin:0;">🏷️ ตั้งค่าเงื่อนไขหมดอายุรายสินค้า</h2><p style="font-size:11px;color:var(--t3);">กำหนดอายุการเก็บและเลือกว่าจะเตือนที่กี่วันสำหรับ SKU นี้ — ถ้าไม่ตั้งจะใช้ค่า Default</p></div>
         <div class="rts-card" style="margin-bottom:12px;">
           <label class="rts-label">SKU / Barcode (เว้นว่าง = ตั้งค่า Default ของทั้งระบบ)</label>
@@ -485,40 +524,6 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
           <div style="display:flex;gap:8px;justify-content:flex-end;"><button id="exprDeleteBtn" onclick="deleteExpiryRule()" class="abtn btn-rd" style="display:none;">ลบ</button><button id="exprSaveBtn" onclick="saveExpiryRule()" class="abtn btn-solid-or">บันทึก</button></div>
         </div>
         <div class="rts-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span class="card-title">📋 รายการที่ตั้งค่าไว้</span><button onclick="loadExpiryRulesList()" class="card-btn">↻</button></div><div id="exprRulesList" style="display:flex;flex-direction:column;gap:6px;"><p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">กำลังโหลด...</p></div></div>
-      </section>
-
-      <!-- EXPIRY DASHBOARD -->
-      <section id="page-expdash" style="display:none;max-width:960px;margin:0 auto;">
-        <div class="rts-card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-          <div><h2 style="font-size:15px;font-weight:900;color:var(--t1);margin:0;">📊 Dashboard สินค้ามีวันหมดอายุ</h2><p style="font-size:11px;color:var(--t3);">ภาพรวมสินค้าที่มีวันหมดอายุทั้งหมดในระบบ</p></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <select id="expdBranch" class="rts-select" style="font-size:12px;padding:4px 8px;width:auto;" onchange="renderExpDash()"><option value="">ทุกสาขา</option></select>
-            <select id="expdCategory" class="rts-select" style="font-size:12px;padding:4px 8px;width:auto;" onchange="renderExpDash()"><option value="">ทุกหมวด</option></select>
-            <button onclick="loadExpDash()" class="card-btn">↻</button>
-            <button onclick="exportExpDash()" class="abtn btn-solid-nv" style="font-size:11px;padding:6px 10px;">⬇ Export</button>
-          </div>
-        </div>
-        <!-- KPI Tiles -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;" id="expdKpiGrid">
-          <div style="background:#3a0a0a;border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('0')"><p style="font-size:10px;color:#fca5a5;font-weight:700;">⚫ หมดอายุแล้ว</p><p id="expdK0" style="font-size:28px;font-weight:900;color:#fca5a5;">-</p><p style="font-size:9px;color:#fca5a5;">รายการ</p></div>
-          <div style="background:var(--rd-bg);border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('10')"><p style="font-size:10px;color:var(--rd-t);font-weight:700;">🔴 น้อยกว่า 10 วัน</p><p id="expdK10" style="font-size:28px;font-weight:900;color:var(--rd-t);">-</p><p style="font-size:9px;color:var(--rd-t);">รายการ</p></div>
-          <div style="background:var(--am-bg);border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('30')"><p style="font-size:10px;color:var(--am-t);font-weight:700;">🟠 10–30 วัน</p><p id="expdK30" style="font-size:28px;font-weight:900;color:var(--am-t);">-</p><p style="font-size:9px;color:var(--am-t);">รายการ</p></div>
-          <div style="background:var(--surf2);border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('60')"><p style="font-size:10px;color:var(--t2);font-weight:700;">🟡 30–60 วัน</p><p id="expdK60" style="font-size:28px;font-weight:900;color:var(--t2);">-</p><p style="font-size:9px;color:var(--t2);">รายการ</p></div>
-          <div style="background:#1e3a5f;border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('90')"><p style="font-size:10px;color:#93c5fd;font-weight:700;">🔵 60–90 วัน</p><p id="expdK90" style="font-size:28px;font-weight:900;color:#93c5fd;">-</p><p style="font-size:9px;color:#93c5fd;">รายการ</p></div>
-          <div style="background:#312e5f;border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setExpdTierFilter('120')"><p style="font-size:10px;color:#c7d2fe;font-weight:700;">🟣 90–120 วัน</p><p id="expdK120" style="font-size:28px;font-weight:900;color:#c7d2fe;">-</p><p style="font-size:9px;color:#c7d2fe;">รายการ</p></div>
-        </div>
-        <!-- Chart -->
-        <div class="rts-card" style="margin-bottom:12px;"><p style="font-size:11px;font-weight:800;color:var(--t2);margin-bottom:10px;">📈 กระจายตามหมวดสินค้า (จำนวนรายการ)</p><div style="overflow-x:auto;"><canvas id="expdChart" height="120"></canvas></div></div>
-        <!-- Tier filter + Table -->
-        <div class="rts-card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-            <span class="card-title">รายการสินค้า <span id="expdRowCount" style="font-size:11px;color:var(--t3);"></span></span>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <select id="expdTierFilter" class="rts-select" style="font-size:11px;padding:4px 8px;width:auto;" onchange="renderExpDash()"><option value="">ทุกกลุ่ม</option><option value="0">⚫ หมดแล้ว</option><option value="10">🔴 &lt;10 วัน</option><option value="30">🟠 10-30 วัน</option><option value="60">🟡 30-60 วัน</option><option value="90">🔵 60-90 วัน</option><option value="120">🟣 90-120 วัน</option></select>
-              <input id="expdSearch" class="rts-input" placeholder="ค้นหา SKU/ชื่อ..." oninput="renderExpDash()" style="font-size:11px;padding:4px 8px;width:150px;">
-            </div>
-          </div>
-          <div style="overflow-x:auto;max-height:440px;"><table class="rts-table"><thead><tr><th>SKU</th><th>ชื่อสินค้า</th><th>หมวด</th><th>โลเคชั่น</th><th style="text-align:right;">จำนวน</th><th>MFD</th><th>EXP</th><th style="text-align:right;">เหลือ (วัน)</th><th>กลุ่ม</th></tr></thead><tbody id="expdTableBody"><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--t3);">กำลังโหลด...</td></tr></tbody></table></div>
         </div>
       </section>
       <section id="page-locations" style="display:none;max-width:960px;margin:0 auto;">
@@ -618,9 +623,9 @@ function initSb(){if(!_sb&&typeof supabase!=='undefined'){_sb=supabase.createCli
 const sb=new Proxy({},{get:(_,prop)=>{const client=initSb();if(!client)throw new Error('Supabase not loaded yet');return client[prop].bind?client[prop].bind(client):client[prop];}});
 
 const ROLE_TABS={
-  admin:['dashboard','overview','putaway','pick','report','count','logs','sync','master','sku','locations','users','branches','api','lots','expiry','exprules','expdash'],
-  manager:['dashboard','overview','putaway','pick','report','count','logs','sync','lots','expiry','exprules','expdash','locations'],
-  staff:['dashboard','putaway','pick','report','count','lots']
+  admin:['dashboard','overview','putaway','pick','report','count','logs','sync','master','sku','locations','users','branches','api','expmgmt'],
+  manager:['dashboard','overview','putaway','pick','report','count','logs','sync','expmgmt','locations'],
+  staff:['dashboard','putaway','pick','report','count','expmgmt']
 };
 const TAB_CONFIG={
   dashboard:{label:'Dashboard',icon:'🏠',mobile:true},
@@ -636,10 +641,7 @@ const TAB_CONFIG={
   users:{label:'ผู้ใช้งาน',icon:'👥',mobile:false},
   branches:{label:'จัดการสาขา',icon:'🏪',mobile:false},
   api:{label:'API Agilis',icon:'🔌',mobile:false},
-  lots:{label:'Lot สินค้า',icon:'📦',mobile:false},
-  expiry:{label:'หมดอายุ',icon:'⏰',mobile:true},
-  exprules:{label:'เงื่อนไขหมดอายุ',icon:'🏷️',mobile:false},
-  expdash:{label:'Dashboard หมดอายุ',icon:'📊',mobile:false},
+  expmgmt:{label:'หมดอายุ/Lot',icon:'⏰',mobile:true},
   locations:{label:'โลเคชั่น',icon:'📍',mobile:false}
 };
 
@@ -747,8 +749,19 @@ function switchTab(id){
   const mob=tabs.filter(t=>TAB_CONFIG[t].mobile).slice(0,4);mob.forEach(t=>{const mb=document.getElementById(`mtab-${t}`);if(mb)mb.className=t===id?"bnav-item on":"bnav-item";});
   if(id==='dashboard')loadDashboard();
   if(id==='overview')loadOverview();
-  if(id==='sku')loadSkuManager();if(id==='report')loadReport();if(id==='pick')loadPickOrders();if(id==='logs')loadLogs();if(id==='users')loadUsers();if(id==='count')loadCycleSessions();if(id==='branches')loadBranches();if(id==='api')loadApiLog();if(id==='lots')loadLots();if(id==='expiry')loadExpiryAlert();if(id==='exprules')loadExpiryRulesList();if(id==='expdash')loadExpDash();if(id==='locations')loadLocationManager();
+  if(id==='sku')loadSkuManager();if(id==='report')loadReport();if(id==='pick')loadPickOrders();if(id==='logs')loadLogs();if(id==='users')loadUsers();if(id==='count')loadCycleSessions();if(id==='branches')loadBranches();if(id==='api')loadApiLog();if(id==='expmgmt')switchExpTab('overview');if(id==='locations')loadLocationManager();
   if(id==='sync'){sb.from('branches').select('branch_code,branch_name').then(({data})=>{const sel=document.getElementById('syncBranchCode');if(sel&&data?.length){sel.innerHTML=data.map(b=>`<option value="${escapeHtml(b.branch_code)}">${escapeHtml(b.branch_code)} — ${escapeHtml(b.branch_name||b.branch_code)}</option>`).join('');if(currentUser?.branch_code){const opt=[...sel.options].find(o=>o.value===currentUser.branch_code);if(opt)sel.value=currentUser.branch_code;}}});}
+}
+let currentExpSubTab='overview';
+function switchExpTab(sub){
+  currentExpSubTab=sub;
+  ['overview','list','settings'].forEach(s=>{
+    const panel=document.getElementById(`exppanel-${s}`);if(panel)panel.style.display=s===sub?'':'none';
+    const btn=document.getElementById(`exptab-${s}`);if(btn){btn.className=s===sub?'abtn exptab-btn btn-solid-or':'abtn exptab-btn';btn.style.background=s===sub?'':'var(--surf2)';btn.style.color=s===sub?'':'var(--t2)';}
+  });
+  if(sub==='overview')loadExpDash();
+  if(sub==='list'){loadExpiryAlert();loadLots();}
+  if(sub==='settings')loadExpiryRulesList();
 }
 
 async function checkConn(){try{const{error}=await sb.from('locations').select('location_code').limit(1);if(error)throw error;const el=document.getElementById('globalStatus');if(el){el.className='g-status ok';el.textContent='🟢 เชื่อมต่อสำเร็จ';}}catch{const el=document.getElementById('globalStatus');if(el){el.className='g-status';el.textContent='🔴 ขาดการเชื่อมต่อ';}}}
@@ -1574,8 +1587,8 @@ async function loadDashExpirySummary(){try{const d120=new Date();d120.setDate(d1
 async function loadDashKPI(){try{let allStocks=[],from=0;while(true){const{data,error}=await sb.from('stock_locations').select('sku,quantity').range(from,from+999);if(error)throw error;if(!data||!data.length)break;allStocks=allStocks.concat(data);if(data.length<1000)break;from+=1000;}const skuSet=new Set(allStocks.map(s=>s.sku)),totalQty=allStocks.reduce((s,x)=>s+x.quantity,0);const ks=document.getElementById('kpiSkuCount'),kt=document.getElementById('kpiStockTotal');if(ks)ks.textContent=skuSet.size.toLocaleString();if(kt)kt.textContent=`รวมสต็อค ${totalQty.toLocaleString()} ชิ้น`;const{count:pickCount}=await sb.from('pick_orders').select('*',{count:'exact',head:true}).eq('status','pending');const kp=document.getElementById('kpiPickPending');if(kp)kp.textContent=pickCount||0;const d120=new Date();d120.setDate(d120.getDate()+120);const expRows=(await fetchExpiringStock(d120.toISOString().slice(0,10))).filter(passesExpiryAlert);const ke=document.getElementById('kpiExpiring');if(ke)ke.textContent=expRows.length||0;const{count:ccCount}=await sb.from('cycle_count_sessions').select('*',{count:'exact',head:true}).eq('status','pending_approval');const{count:mdCount}=await sb.from('markdown_requests').select('*',{count:'exact',head:true}).eq('status','pending');const ka=document.getElementById('kpiPendingApprove');if(ka)ka.textContent=(ccCount||0)+(mdCount||0);}catch(err){console.warn('KPI:',err.message);}}
 async function loadDashPicks(){const list=document.getElementById('dashPickList');if(!list)return;try{const{data}=await sb.from('pick_orders').select('doc_no,status,created_at,pick_order_items(qty_requested)').in('status',['pending','picking']).order('created_at',{ascending:false}).limit(5);if(!data?.length){list.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">✅ ไม่มีใบเบิกรอจัด</p>';return;}list.innerHTML=data.map(o=>{const total=(o.pick_order_items||[]).reduce((s,i)=>s+i.qty_requested,0),dt=new Date(o.created_at).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});return `<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surf2);border-radius:10px;padding:8px 12px;cursor:pointer;margin-bottom:4px;" onclick="switchTab('pick')"><div><p style="font-family:'Courier New',monospace;font-weight:800;color:var(--t1);font-size:12px;">${escapeHtml(o.doc_no)}</p><p style="font-size:10px;color:var(--t3);">${dt} • ${total} ชิ้น</p></div><span class="sp ${o.status==='pending'?'sp-wait':'sp-prog'}">${o.status==='pending'?'รอจัด':'กำลังจัด'}</span></div>`;}).join('');}catch(err){list.innerHTML=`<p style="font-size:12px;color:var(--rd-t);text-align:center;padding:12px;">❌ ${escapeHtml(err.message)}</p>`;}}
 async function loadDashLogs(){const list=document.getElementById('dashLogList');if(!list)return;try{const today=new Date().toISOString().slice(0,10);const{data}=await sb.from('stock_logs').select('*').gte('created_at',today+'T00:00:00').order('created_at',{ascending:false}).limit(8);if(!data?.length){list.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">ยังไม่มีการเปลี่ยนแปลงวันนี้</p>';return;}const tl={putaway:'📥',sync_deduct:'📤',pick_out:'🛒',pick_in:'📦',cycle_count:'🔢'};list.innerHTML=data.map(r=>{const dt=new Date(r.created_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}),cc=r.qty_change>0?'color:var(--gn-t);font-weight:800;':'color:var(--rd-t);font-weight:800;';return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:2px;"><span style="color:var(--t3);width:40px;flex-shrink:0;">${dt}</span><span style="font-family:'Courier New',monospace;color:var(--t2);flex:1;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${tl[r.action_type]||'•'} ${escapeHtml(r.sku)}</span><span style="${cc}">${r.qty_change>0?'+':''}${r.qty_change}</span></div>`;}).join('');}catch(err){list.innerHTML=`<p style="font-size:12px;color:var(--rd-t);text-align:center;padding:12px;">❌ ${escapeHtml(err.message)}</p>`;}}
-async function loadDashExpiry(){const section=document.getElementById('dashExpiryAlert'),list=document.getElementById('dashExpiryList');if(!section||!list)return;try{const d10=new Date();d10.setDate(d10.getDate()+10);const data=(await fetchExpiringStock(d10.toISOString().slice(0,10))).filter(passesExpiryAlert).slice(0,5);if(!data.length){section.style.display='none';return;}section.style.display='';list.innerHTML=data.map(l=>{const d=daysLeft(l.exp_date);return `<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surf);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;" onclick="switchTab('expiry')"><div><p style="font-family:'Courier New',monospace;font-weight:800;color:var(--rd-t);">${escapeHtml(l.sku)}</p><p style="font-size:10px;color:var(--t3);">${escapeHtml(l.location_code)} • ${l.quantity} ชิ้น</p></div><span class="exp-crit" style="font-size:11px;flex-shrink:0;">${d<=0?'หมดแล้ว':`เหลือ ${d}ว`}</span></div>`;}).join('');}catch(err){console.warn('Expiry dash:',err.message);}}
-async function loadDashApprovals(){const section=document.getElementById('dashApprovalSection'),list=document.getElementById('dashApprovalList');if(!section||!list||currentUser.role==='staff'){if(section)section.style.display='none';return;}try{const[cc,md]=await Promise.all([sb.from('cycle_count_sessions').select('session_no,location_code,created_by').eq('status','pending_approval').limit(3),sb.from('markdown_requests').select('sku,action_type,requested_by').eq('status','pending').limit(3)]);const items=[...(cc.data||[]).map(r=>({label:`🔢 Cycle Count: ${r.session_no}`,sub:`📍 ${r.location_code}`,tab:'count'})),...(md.data||[]).map(r=>({label:`📋 Markdown: ${r.sku}`,sub:`โดย ${r.requested_by||'-'}`,tab:'expiry'}))];if(!items.length){section.style.display='none';return;}section.style.display='';list.innerHTML=items.map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surf);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;margin-bottom:4px;" onclick="switchTab('${i.tab}')"><div><p style="font-weight:800;color:var(--t1);">${escapeHtml(i.label)}</p><p style="font-size:10px;color:var(--t3);">${escapeHtml(i.sub)}</p></div><span style="color:var(--am-t);font-weight:800;flex-shrink:0;">รออนุมัติ →</span></div>`).join('');}catch(err){console.warn('Approval dash:',err.message);}}
+async function loadDashExpiry(){const section=document.getElementById('dashExpiryAlert'),list=document.getElementById('dashExpiryList');if(!section||!list)return;try{const d10=new Date();d10.setDate(d10.getDate()+10);const data=(await fetchExpiringStock(d10.toISOString().slice(0,10))).filter(passesExpiryAlert).slice(0,5);if(!data.length){section.style.display='none';return;}section.style.display='';list.innerHTML=data.map(l=>{const d=daysLeft(l.exp_date);return `<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surf);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;" onclick="switchTab('expmgmt');switchExpTab('list')"><div><p style="font-family:'Courier New',monospace;font-weight:800;color:var(--rd-t);">${escapeHtml(l.sku)}</p><p style="font-size:10px;color:var(--t3);">${escapeHtml(l.location_code)} • ${l.quantity} ชิ้น</p></div><span class="exp-crit" style="font-size:11px;flex-shrink:0;">${d<=0?'หมดแล้ว':`เหลือ ${d}ว`}</span></div>`;}).join('');}catch(err){console.warn('Expiry dash:',err.message);}}
+async function loadDashApprovals(){const section=document.getElementById('dashApprovalSection'),list=document.getElementById('dashApprovalList');if(!section||!list||currentUser.role==='staff'){if(section)section.style.display='none';return;}try{const[cc,md]=await Promise.all([sb.from('cycle_count_sessions').select('session_no,location_code,created_by').eq('status','pending_approval').limit(3),sb.from('markdown_requests').select('sku,action_type,requested_by').eq('status','pending').limit(3)]);const items=[...(cc.data||[]).map(r=>({label:`🔢 Cycle Count: ${r.session_no}`,sub:`📍 ${r.location_code}`,tab:'count'})),...(md.data||[]).map(r=>({label:`📋 Markdown: ${r.sku}`,sub:`โดย ${r.requested_by||'-'}`,tab:'expmgmt'}))];if(!items.length){section.style.display='none';return;}section.style.display='';list.innerHTML=items.map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surf);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;margin-bottom:4px;" onclick="switchTab('${i.tab}');if('${i.tab}'==='expmgmt')switchExpTab('list');"><div><p style="font-weight:800;color:var(--t1);">${escapeHtml(i.label)}</p><p style="font-size:10px;color:var(--t3);">${escapeHtml(i.sub)}</p></div><span style="color:var(--am-t);font-weight:800;flex-shrink:0;">รออนุมัติ →</span></div>`).join('');}catch(err){console.warn('Approval dash:',err.message);}}
 // NOTIFICATION BELL — เอกสารที่ต้องทำ/รออนุมัติ
 async function loadNotifications(){
   const listEl=document.getElementById('notifPanelList'),dot=document.getElementById('notifDot');
@@ -1593,7 +1606,7 @@ async function loadNotifications(){
       const{data:pendingMd}=await sb.from('markdown_requests').select('sku,location_code').eq('status','pending');
       const pendingSet=new Set((pendingMd||[]).map(r=>`${r.sku}|${r.location_code}`));
       const needsAction=expRows.filter(r=>!pendingSet.has(`${r.sku}|${r.location_code}`));
-      if(needsAction.length)sections.push({title:'⏰ ใกล้หมดอายุ ยังไม่ได้ทำคำขอ',tab:'expiry',items:needsAction.slice(0,10).map(r=>{const d=daysLeft(r.exp_date);return{label:r.sku,sub:d<=0?`หมดแล้ว • ${r.location_code}`:`เหลือ ${d}ว • ${r.location_code}`};})});
+      if(needsAction.length)sections.push({title:'⏰ ใกล้หมดอายุ ยังไม่ได้ทำคำขอ',tab:'expmgmt',items:needsAction.slice(0,10).map(r=>{const d=daysLeft(r.exp_date);return{label:r.sku,sub:d<=0?`หมดแล้ว • ${r.location_code}`:`เหลือ ${d}ว • ${r.location_code}`};})});
     }catch(e){console.warn('Notif expiry section:',e.message);}
     // รออนุมัติ — เฉพาะ admin/manager
     if(currentUser.role!=='staff'){
@@ -1604,13 +1617,13 @@ async function loadNotifications(){
       if(cc.data?.length)sections.push({title:'🔢 นับสต็อครออนุมัติ',tab:'count',items:cc.data.map(s=>({label:s.session_no,sub:`📍 ${s.location_code}`}))});
       if(md.data?.length){
         const mdGroups={};md.data.forEach(r=>{const key=r.batch_no||r.sku;if(!mdGroups[key])mdGroups[key]={label:r.batch_no?`📄 ${r.batch_no}`:r.sku,count:0};mdGroups[key].count++;});
-        sections.push({title:'💰 คำขอลดราคา/ทำลายรออนุมัติ',tab:'expiry',items:Object.values(mdGroups).map(g=>({label:g.label,sub:g.count>1?`${g.count} รายการ`:''}))});
+        sections.push({title:'💰 คำขอลดราคา/ทำลายรออนุมัติ',tab:'expmgmt',items:Object.values(mdGroups).map(g=>({label:g.label,sub:g.count>1?`${g.count} รายการ`:''}))});
       }
     }
     const totalCount=sections.reduce((s,sec)=>s+sec.items.length,0);
     if(dot)dot.style.display=totalCount>0?'block':'none';
     if(!sections.length){listEl.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:16px;">✅ ไม่มีเอกสารที่ต้องทำ</p>';return;}
-    listEl.innerHTML=sections.map(sec=>`<div style="margin-bottom:8px;"><p style="font-size:10px;font-weight:800;color:var(--t3);text-transform:uppercase;padding:6px 8px 4px;">${sec.title} (${sec.items.length})</p>${sec.items.map(it=>`<div onclick="switchTab('${sec.tab}');closeNotifPanel();" style="display:flex;justify-content:space-between;align-items:center;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:12px;" onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background='transparent'"><span style="font-family:'Courier New',monospace;font-weight:700;color:var(--t1);">${escapeHtml(it.label)}</span><span style="font-size:10px;color:var(--t3);">${escapeHtml(it.sub)}</span></div>`).join('')}</div>`).join('');
+    listEl.innerHTML=sections.map(sec=>`<div style="margin-bottom:8px;"><p style="font-size:10px;font-weight:800;color:var(--t3);text-transform:uppercase;padding:6px 8px 4px;">${sec.title} (${sec.items.length})</p>${sec.items.map(it=>`<div onclick="switchTab('${sec.tab}');if('${sec.tab}'==='expmgmt')switchExpTab('list');closeNotifPanel();" style="display:flex;justify-content:space-between;align-items:center;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:12px;" onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background='transparent'"><span style="font-family:'Courier New',monospace;font-weight:700;color:var(--t1);">${escapeHtml(it.label)}</span><span style="font-size:10px;color:var(--t3);">${escapeHtml(it.sub)}</span></div>`).join('')}</div>`).join('');
   }catch(err){listEl.innerHTML=`<p style="font-size:12px;color:var(--rd-t);text-align:center;padding:16px;">❌ ${escapeHtml(err.message)}</p>`;console.warn('Notifications:',err.message);}
 }
 function toggleNotifPanel(){const panel=document.getElementById('notifPanel');const isOpen=panel.style.display==='block';if(isOpen){closeNotifPanel();}else{panel.style.display='block';loadNotifications();document.addEventListener('click',notifOutsideClickHandler);}}
