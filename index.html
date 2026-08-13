@@ -319,6 +319,34 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
         <div id="dashLowStockSection" style="display:none;background:var(--or-bg);border:1.5px solid var(--or-bdr);border-radius:12px;padding:14px;"><h3 style="font-size:13px;font-weight:800;color:var(--or-t);margin-bottom:8px;">📉 สต็อคต่ำกว่า Minimum</h3><div id="dashLowStockList" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;"></div></div>
       </section>
 
+      <!-- AUDIT DASHBOARD (เอกสารทั้งหมด) -->
+      <section id="page-audit" style="display:none;max-width:960px;margin:0 auto;">
+        <div class="rts-card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div><h2 style="font-size:15px;font-weight:900;color:var(--t1);margin:0;">📋 เอกสารทั้งหมด</h2><p style="font-size:11px;color:var(--t3);">ภาพรวมเอกสาร/งานที่ต้องดำเนินการทั้งระบบ</p></div>
+          <button onclick="loadAuditDashboard()" id="auditRefreshBtn" class="card-btn">↻ รีเฟรช</button>
+        </div>
+
+        <!-- Live Document Counts -->
+        <div class="rts-card" style="margin-bottom:12px;">
+          <p style="font-size:11px;font-weight:800;color:var(--t2);text-transform:uppercase;margin-bottom:10px;">📊 นับเอกสารสด</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;" id="auditLiveCounts">
+            <div style="background:var(--surf2);border-radius:8px;padding:10px;"><p style="font-size:10px;color:var(--t3);">⏳...</p></div>
+          </div>
+        </div>
+
+        <!-- Aging by Condition -->
+        <div class="rts-card" style="margin-bottom:12px;">
+          <p style="font-size:11px;font-weight:800;color:var(--t2);text-transform:uppercase;margin-bottom:10px;">⏱️ อายุเอกสารตามเงื่อนไข</p>
+          <div style="overflow-x:auto;"><table class="rts-table"><thead><tr><th>เงื่อนไข</th><th style="text-align:center;">วันนี้</th><th style="text-align:center;">1–7 วัน</th><th style="text-align:center;">เกิน 7 วัน</th></tr></thead><tbody id="auditAgingBody"><tr><td colspan="4" style="text-align:center;padding:16px;color:var(--t3);">⏳ กำลังโหลด...</td></tr></tbody></table></div>
+        </div>
+
+        <!-- Recent Pending Documents -->
+        <div class="rts-card">
+          <p style="font-size:11px;font-weight:800;color:var(--t2);text-transform:uppercase;margin-bottom:10px;">🕒 เอกสารรอดำเนินการล่าสุด (เรียงจากค้างนานสุด)</p>
+          <div style="overflow-x:auto;max-height:420px;"><table class="rts-table"><thead><tr><th>เอกสาร</th><th>ประเภท</th><th>โดย</th><th style="text-align:right;">อายุ</th><th></th></tr></thead><tbody id="auditPendingBody"><tr><td colspan="5" style="text-align:center;padding:16px;color:var(--t3);">⏳ กำลังโหลด...</td></tr></tbody></table></div>
+        </div>
+      </section>
+
       <!-- OVERVIEW -->
       <section id="page-overview" style="display:none;max-width:960px;margin:0 auto;">
         <div class="rts-card" style="margin-bottom:14px;">
@@ -619,12 +647,13 @@ function initSb(){if(!_sb&&typeof supabase!=='undefined'){_sb=supabase.createCli
 const sb=new Proxy({},{get:(_,prop)=>{const client=initSb();if(!client)throw new Error('Supabase not loaded yet');return client[prop].bind?client[prop].bind(client):client[prop];}});
 
 const ROLE_TABS={
-  admin:['dashboard','overview','putaway','pick','report','count','logs','sync','master','sku','locations','users','branches','api','expmgmt'],
-  manager:['dashboard','overview','putaway','pick','report','count','logs','sync','expmgmt','locations'],
+  admin:['dashboard','audit','overview','putaway','pick','report','count','logs','sync','master','sku','locations','users','branches','api','expmgmt'],
+  manager:['dashboard','audit','overview','putaway','pick','report','count','logs','sync','expmgmt','locations'],
   staff:['dashboard','putaway','pick','report','count','expmgmt']
 };
 const TAB_CONFIG={
   dashboard:{label:'Dashboard',icon:'🏠',mobile:true},
+  audit:{label:'เอกสารทั้งหมด',icon:'📋',mobile:false},
   overview:{label:'ภาพรวมสต็อค',icon:'📈',mobile:false},
   putaway:{label:'จัดเก็บ',icon:'📥',mobile:true},
   pick:{label:'เบิกสินค้า',icon:'🛒',mobile:true},
@@ -745,7 +774,7 @@ function switchTab(id){
   const mob=tabs.filter(t=>TAB_CONFIG[t].mobile).slice(0,4);mob.forEach(t=>{const mb=document.getElementById(`mtab-${t}`);if(mb)mb.className=t===id?"bnav-item on":"bnav-item";});
   if(id==='dashboard')loadDashboard();
   if(id==='overview')loadOverview();
-  if(id==='sku')loadSkuManager();if(id==='report')loadReport();if(id==='pick')loadPickOrders();if(id==='logs')loadLogs();if(id==='users')loadUsers();if(id==='count')loadCycleSessions();if(id==='branches')loadBranches();if(id==='api')loadApiLog();if(id==='expmgmt')switchExpTab('overview');if(id==='locations')loadLocationManager();
+  if(id==='sku')loadSkuManager();if(id==='report')loadReport();if(id==='pick')loadPickOrders();if(id==='logs')loadLogs();if(id==='users')loadUsers();if(id==='count')loadCycleSessions();if(id==='branches')loadBranches();if(id==='api')loadApiLog();if(id==='expmgmt')switchExpTab('overview');if(id==='locations')loadLocationManager();if(id==='audit')loadAuditDashboard();
   if(id==='sync'){sb.from('branches').select('branch_code,branch_name').then(({data})=>{const sel=document.getElementById('syncBranchCode');if(sel&&data?.length){sel.innerHTML=data.map(b=>`<option value="${escapeHtml(b.branch_code)}">${escapeHtml(b.branch_code)} — ${escapeHtml(b.branch_name||b.branch_code)}</option>`).join('');if(currentUser?.branch_code){const opt=[...sel.options].find(o=>o.value===currentUser.branch_code);if(opt)sel.value=currentUser.branch_code;}}});}
 }
 let currentExpSubTab='overview';
@@ -1553,6 +1582,77 @@ async function loadStockValueSummary(){
   }catch(err){console.warn('Stock value summary:',err.message);const tc=document.getElementById('svTotalCost');if(tc)tc.textContent='ผิดพลาด';}
 }
 async function loadDashExpirySummary(){try{const d120=new Date();d120.setDate(d120.getDate()+120);const data=await fetchExpiringStock(d120.toISOString().slice(0,10));const counts={0:0,10:0,30:0,60:0,90:0,120:0};data.forEach(l=>{const d=daysLeft(l.exp_date);if(d===null)return;if(d<=0&&l._alert0)counts[0]++;else if(d<=10&&l._alert10)counts[10]++;else if(d<=30&&l._alert30)counts[30]++;else if(d<=60&&l._alert60)counts[60]++;else if(d<=90&&l._alert90)counts[90]++;else if(d<=120&&l._alert120)counts[120]++;});const fmt=n=>n>0?n.toLocaleString():'–';['0','10','30','60','90','120'].forEach(t=>{const el=document.getElementById(`dashExp${t}`);if(el){el.textContent=fmt(counts[parseInt(t)]);el.style.color=counts[parseInt(t)]>0?undefined:'var(--t3)';}});}catch(err){console.warn('Expiry summary:',err.message);}}
+// AUDIT DASHBOARD (เอกสารทั้งหมด) — ใช้ตารางที่มีอยู่แล้วทั้งหมด ไม่สร้างตารางใหม่
+function auditAgeBucket(createdAt){
+  const days=Math.floor((Date.now()-new Date(createdAt).getTime())/86400000);
+  if(days<=0)return'today';if(days<=7)return'week';return'old';
+}
+function auditAgeLabel(createdAt){
+  const days=Math.floor((Date.now()-new Date(createdAt).getTime())/86400000);
+  if(days<=0)return'วันนี้';if(days===1)return'1 วัน';return`${days} วัน`;
+}
+async function loadAuditDashboard(){
+  const btn=document.getElementById('auditRefreshBtn');setButtonLoading(btn,true,'...');
+  try{
+    const[pickRes,ccRes,mdRes]=await Promise.all([
+      sb.from('pick_orders').select('id,doc_no,status,created_at,created_by').in('status',['pending','picking']).order('created_at',{ascending:true}),
+      sb.from('cycle_count_sessions').select('id,session_no,location_code,status,created_at,created_by').eq('status','pending_approval').order('created_at',{ascending:true}),
+      sb.from('markdown_requests').select('id,sku,batch_no,status,created_at,requested_by').eq('status','pending').order('created_at',{ascending:true})
+    ]);
+    const picks=pickRes.data||[],counts=ccRes.data||[],markdowns=mdRes.data||[];
+    // group markdowns by batch_no so a batch document counts as 1 "document" not N rows
+    const mdGroups={};markdowns.forEach(r=>{const key=r.batch_no||r.id;if(!mdGroups[key])mdGroups[key]={label:r.batch_no?`📄 ${r.batch_no}`:`SKU: ${r.sku}`,created_at:r.created_at,requested_by:r.requested_by,count:0};mdGroups[key].count++;});
+    const mdDocs=Object.values(mdGroups);
+
+    // 1) Live Document Counts
+    const liveEl=document.getElementById('auditLiveCounts');
+    const liveItems=[
+      {label:'📦 ใบเบิกรอจัด',count:picks.length,color:'var(--nv-t)',tab:'pick'},
+      {label:'🔢 นับสต็อครอนุมัติ',count:counts.length,color:'var(--pu-t)',tab:'count'},
+      {label:'💰 คำขอรออนุมัติ',count:mdDocs.length,color:'var(--am-t)',tab:'expmgmt'},
+    ];
+    if(liveEl)liveEl.innerHTML=liveItems.map(it=>`<div onclick="switchTab('${it.tab}')${it.tab==='expmgmt'?";switchExpTab('list')":''}" style="cursor:pointer;background:var(--surf2);border-radius:8px;padding:12px;text-align:center;"><p style="font-size:22px;font-weight:900;color:${it.color};">${it.count}</p><p style="font-size:10px;color:var(--t3);">${it.label}</p></div>`).join('');
+
+    // 2) Aging by Condition
+    const conditions=[
+      {label:'📦 รอจัดใบเบิก',rows:picks},
+      {label:'🔢 รอนุมัตินับสต็อค',rows:counts},
+      {label:'💰 รออนุมัติคำขอ',rows:markdowns},
+    ];
+    const agingEl=document.getElementById('auditAgingBody');
+    if(agingEl){
+      agingEl.innerHTML=conditions.map(c=>{
+        const today=c.rows.filter(r=>auditAgeBucket(r.created_at)==='today').length;
+        const week=c.rows.filter(r=>auditAgeBucket(r.created_at)==='week').length;
+        const old=c.rows.filter(r=>auditAgeBucket(r.created_at)==='old').length;
+        const pill=(n,cls)=>n>0?`<span class="pill ${cls}">${n}</span>`:`<span style="color:var(--t3);">-</span>`;
+        return`<tr><td style="font-weight:700;">${c.label}</td><td style="text-align:center;">${pill(today,'pill-g')}</td><td style="text-align:center;">${pill(week,'pill-am')}</td><td style="text-align:center;">${pill(old,'pill-r')}</td></tr>`;
+      }).join('');
+      if(!conditions.some(c=>c.rows.length))agingEl.innerHTML='<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--t3);">✅ ไม่มีเอกสารค้าง</td></tr>';
+    }
+
+    // 3) Recent Pending Documents — รวมทุกประเภท เรียงเก่าสุดก่อน (ต้องรีบทำก่อน)
+    const allDocs=[
+      ...picks.map(p=>({label:`📦 ${p.doc_no}`,type:'ใบเบิก',by:p.created_by||'-',created_at:p.created_at,tab:'pick'})),
+      ...counts.map(c=>({label:`🔢 ${c.session_no}`,type:'นับสต็อค',by:c.created_by||'-',created_at:c.created_at,tab:'count'})),
+      ...mdDocs.map(m=>({label:m.label+(m.count>1?` (${m.count} รายการ)`:''),type:'คำขออนุมัติ',by:m.requested_by||'-',created_at:m.created_at,tab:'expmgmt'})),
+    ].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+    const pendEl=document.getElementById('auditPendingBody');
+    if(pendEl){
+      if(!allDocs.length){pendEl.innerHTML='<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--t3);">✅ ไม่มีเอกสารรอดำเนินการ</td></tr>';}
+      else{
+        pendEl.innerHTML=allDocs.slice(0,100).map(d=>{
+          const bucket=auditAgeBucket(d.created_at);
+          const ageCls=bucket==='today'?'pill-g':bucket==='week'?'pill-am':'pill-r';
+          return`<tr><td style="font-weight:700;">${escapeHtml(d.label)}</td><td style="font-size:11px;color:var(--t3);">${escapeHtml(d.type)}</td><td style="font-size:11px;color:var(--t3);">${escapeHtml(d.by)}</td><td style="text-align:right;"><span class="pill ${ageCls}">${auditAgeLabel(d.created_at)}</span></td><td style="text-align:right;"><button onclick="switchTab('${d.tab}')${d.tab==='expmgmt'?";switchExpTab('list')":''}" class="abtn btn-nv" style="padding:3px 8px;font-size:10px;">ไปดู</button></td></tr>`;
+        }).join('');
+      }
+    }
+  }catch(err){
+    const pendEl=document.getElementById('auditPendingBody');
+    if(pendEl)pendEl.innerHTML=`<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--rd-t);">❌ ${escapeHtml(err.message)}</td></tr>`;
+  }finally{setButtonLoading(btn,false,'↻ รีเฟรช');}
+}
 async function loadDashKPI(){try{let allStocks=[],from=0;while(true){const{data,error}=await sb.from('stock_locations').select('sku,quantity').range(from,from+999);if(error)throw error;if(!data||!data.length)break;allStocks=allStocks.concat(data);if(data.length<1000)break;from+=1000;}const skuSet=new Set(allStocks.map(s=>s.sku)),totalQty=allStocks.reduce((s,x)=>s+x.quantity,0);const ks=document.getElementById('kpiSkuCount'),kt=document.getElementById('kpiStockTotal');if(ks)ks.textContent=skuSet.size.toLocaleString();if(kt)kt.textContent=`รวมสต็อค ${totalQty.toLocaleString()} ชิ้น`;const{count:pickCount}=await sb.from('pick_orders').select('*',{count:'exact',head:true}).eq('status','pending');const kp=document.getElementById('kpiPickPending');if(kp)kp.textContent=pickCount||0;const d120=new Date();d120.setDate(d120.getDate()+120);const expRows=(await fetchExpiringStock(d120.toISOString().slice(0,10))).filter(passesExpiryAlert);const ke=document.getElementById('kpiExpiring');if(ke)ke.textContent=expRows.length||0;const{count:ccCount}=await sb.from('cycle_count_sessions').select('*',{count:'exact',head:true}).eq('status','pending_approval');const{count:mdCount}=await sb.from('markdown_requests').select('*',{count:'exact',head:true}).eq('status','pending');const ka=document.getElementById('kpiPendingApprove');if(ka)ka.textContent=(ccCount||0)+(mdCount||0);}catch(err){console.warn('KPI:',err.message);}}
 async function loadDashPicks(){const list=document.getElementById('dashPickList');if(!list)return;try{const{data}=await sb.from('pick_orders').select('doc_no,status,created_at,pick_order_items(qty_requested)').in('status',['pending','picking']).order('created_at',{ascending:false}).limit(5);if(!data?.length){list.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">✅ ไม่มีใบเบิกรอจัด</p>';return;}list.innerHTML=data.map(o=>{const total=(o.pick_order_items||[]).reduce((s,i)=>s+i.qty_requested,0),dt=new Date(o.created_at).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});return `<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surf2);border-radius:10px;padding:8px 12px;cursor:pointer;margin-bottom:4px;" onclick="switchTab('pick')"><div><p style="font-family:'Courier New',monospace;font-weight:800;color:var(--t1);font-size:12px;">${escapeHtml(o.doc_no)}</p><p style="font-size:10px;color:var(--t3);">${dt} • ${total} ชิ้น</p></div><span class="sp ${o.status==='pending'?'sp-wait':'sp-prog'}">${o.status==='pending'?'รอจัด':'กำลังจัด'}</span></div>`;}).join('');}catch(err){list.innerHTML=`<p style="font-size:12px;color:var(--rd-t);text-align:center;padding:12px;">❌ ${escapeHtml(err.message)}</p>`;}}
 async function loadDashLogs(){const list=document.getElementById('dashLogList');if(!list)return;try{const today=new Date().toISOString().slice(0,10);const{data}=await sb.from('stock_logs').select('*').gte('created_at',today+'T00:00:00').order('created_at',{ascending:false}).limit(8);if(!data?.length){list.innerHTML='<p style="font-size:12px;color:var(--t3);text-align:center;padding:12px;">ยังไม่มีการเปลี่ยนแปลงวันนี้</p>';return;}const tl={putaway:'📥',sync_deduct:'📤',pick_out:'🛒',pick_in:'📦',cycle_count:'🔢'};list.innerHTML=data.map(r=>{const dt=new Date(r.created_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}),cc=r.qty_change>0?'color:var(--gn-t);font-weight:800;':'color:var(--rd-t);font-weight:800;';return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:2px;"><span style="color:var(--t3);width:40px;flex-shrink:0;">${dt}</span><span style="font-family:'Courier New',monospace;color:var(--t2);flex:1;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${tl[r.action_type]||'•'} ${escapeHtml(r.sku)}</span><span style="${cc}">${r.qty_change>0?'+':''}${r.qty_change}</span></div>`;}).join('');}catch(err){list.innerHTML=`<p style="font-size:12px;color:var(--rd-t);text-align:center;padding:12px;">❌ ${escapeHtml(err.message)}</p>`;}}
