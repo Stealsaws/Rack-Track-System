@@ -436,7 +436,9 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
       <!-- SYNC -->
       <section id="page-sync" style="display:none;max-width:760px;margin:0 auto;">
         <div class="rts-card">
-          <h2 style="font-size:15px;font-weight:900;color:var(--t1);margin-bottom:16px;">📤 อัปเดตสต็อคประจำวัน</h2>
+          <h2 style="font-size:15px;font-weight:900;color:var(--t1);margin-bottom:10px;">📤 อัปเดตสต็อคประจำวัน</h2>
+          <div style="display:flex;gap:6px;margin-bottom:14px;font-size:11px;font-weight:800;"><span id="syncStepDot1" style="flex:1;text-align:center;padding:6px;border-radius:8px;">① เลือกไฟล์</span><span id="syncStepDot2" style="flex:1;text-align:center;padding:6px;border-radius:8px;">② ตรวจสอบ</span><span id="syncStepDot3" style="flex:1;text-align:center;padding:6px;border-radius:8px;">③ ยืนยัน</span></div>
+          <div id="syncStep1Panel">
           <label style="display:block;background:var(--surf2);border:2px dashed var(--bdr);border-radius:12px;padding:20px;text-align:center;cursor:pointer;margin-bottom:12px;">
             <p style="font-size:13px;font-weight:800;color:var(--t1);margin-bottom:6px;">วางไฟล์สต็อคปัจจุบัน (.xlsx, .csv)</p>
             <input type="file" id="syncFileInput" accept=".csv,.xlsx,.xls" style="font-size:12px;color:var(--t3);">
@@ -447,10 +449,17 @@ body,#appScreen,.rts-card,.rts-kc{transition:background .25s,color .25s,border-c
             <div style="display:flex;align-items:center;gap:8px;margin-top:8px;background:var(--nv-bg);border-radius:8px;padding:8px 12px;"><input type="checkbox" id="skipCompareCheck" style="width:16px;height:16px;"><label for="skipCompareCheck" style="font-size:12px;color:var(--nv-t);font-weight:700;cursor:pointer;">ตั้งค่าสต็อคใหม่ทั้งหมด (เร็วกว่ามาก)</label></div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;background:var(--am-bg);border-radius:8px;padding:8px 12px;"><input type="checkbox" id="autoPriceCheck" style="width:16px;height:16px;flex-shrink:0;"><label for="autoPriceCheck" style="font-size:12px;color:var(--am-t);font-weight:700;cursor:pointer;">💰 ตั้งราคาขายอัตโนมัติจากต้นทุน บวกกำไร</label><input type="number" id="autoPriceMarkup" value="30" min="0" step="1" class="rts-input" style="width:60px;padding:4px 6px;font-size:12px;"><span style="font-size:12px;color:var(--am-t);font-weight:700;">%</span></div>
           </label>
+          </div>
+          <div id="syncStep2Panel" style="display:none;">
           <div id="syncValueSummary" style="display:none;background:var(--gn-bg);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--gn-t);font-weight:700;"></div>
-          <div id="syncProgressSection" style="display:none;" class="prog-wrap" style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--nv-t);margin-bottom:6px;"><span id="syncProgressLabel">กำลังประมวลผล...</span><span id="syncProgressPct">0%</span></div><div class="prog-bar-bg"><div id="syncProgressBar" class="prog-bar" style="width:0%;"></div></div></div>
           <div style="overflow-x:auto;max-height:300px;border:1.5px solid var(--bdr);border-radius:8px;margin-bottom:12px;"><table class="rts-table"><thead><tr><th>SKU/ชื่อ</th><th>โลเคชั่น</th><th style="text-align:right;">ใหม่</th><th style="text-align:right;">ต้นทุน/หน่วย</th><th style="text-align:right;">มูลค่ารวม</th><th style="text-align:right;">เดิม</th><th style="text-align:right;">ผลต่าง</th><th>สถานะ</th></tr></thead><tbody id="syncTableBody"><tr><td colspan="8" style="text-align:center;padding:24px;color:var(--t3);">อัปโหลดไฟล์เพื่อประมวลผล</td></tr></tbody></table></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;"><span id="syncSummaryCount" style="font-size:12px;color:var(--t3);"></span><div style="display:flex;gap:8px;"><button onclick="runPostSyncSmartDeduct(_lastSyncItems)" class="abtn btn-nv">🔄 Smart Deduct</button><button id="confirmSyncBtn" onclick="processSyncDeduction()" disabled class="abtn btn-solid-or">✨ ยืนยันอัปเดต</button></div></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span id="syncSummaryCount" style="font-size:12px;color:var(--t3);"></span><div style="display:flex;gap:8px;"><button onclick="goToSyncStep(1)" class="abtn btn-nv">← เปลี่ยนไฟล์</button><button id="syncStep2NextBtn" onclick="goToSyncStep(3)" disabled class="abtn btn-solid-or">ถัดไป →</button></div></div>
+          </div>
+          <div id="syncStep3Panel" style="display:none;">
+            <div id="syncConfirmSummary" style="background:var(--surf2);border-radius:10px;padding:14px;font-size:13px;line-height:1.8;color:var(--t1);margin-bottom:12px;"></div>
+          <div id="syncProgressSection" style="display:none;" class="prog-wrap" style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--nv-t);margin-bottom:6px;"><span id="syncProgressLabel">กำลังประมวลผล...</span><span id="syncProgressPct">0%</span></div><div class="prog-bar-bg"><div id="syncProgressBar" class="prog-bar" style="width:0%;"></div></div></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><button onclick="goToSyncStep(2)" class="abtn btn-nv">← ย้อนกลับ</button><div style="display:flex;gap:8px;"><button onclick="runPostSyncSmartDeduct(_lastSyncItems)" class="abtn btn-nv">🔄 Smart Deduct</button><button id="confirmSyncBtn" onclick="processSyncDeduction()" disabled class="abtn btn-solid-or">✨ ยืนยันอัปเดต</button></div></div>
+          </div>
         </div>
       </section>
 
@@ -775,7 +784,7 @@ function switchTab(id){
   if(id==='dashboard')loadDashboard();
   if(id==='overview')loadOverview();
   if(id==='sku')loadSkuManager();if(id==='report')loadReport();if(id==='pick')loadPickOrders();if(id==='logs')loadLogs();if(id==='users')loadUsers();if(id==='count')loadCycleSessions();if(id==='branches')loadBranches();if(id==='api')loadApiLog();if(id==='expmgmt')switchExpTab('overview');if(id==='locations')loadLocationManager();if(id==='audit')loadAuditDashboard();
-  if(id==='sync'){sb.from('branches').select('branch_code,branch_name').then(({data})=>{const sel=document.getElementById('syncBranchCode');if(sel&&data?.length){sel.innerHTML=data.map(b=>`<option value="${escapeHtml(b.branch_code)}">${escapeHtml(b.branch_code)} — ${escapeHtml(b.branch_name||b.branch_code)}</option>`).join('');if(currentUser?.branch_code){const opt=[...sel.options].find(o=>o.value===currentUser.branch_code);if(opt)sel.value=currentUser.branch_code;}}});}
+  if(id==='sync'){goToSyncStep(1);sb.from('branches').select('branch_code,branch_name').then(({data})=>{const sel=document.getElementById('syncBranchCode');if(sel&&data?.length){sel.innerHTML=data.map(b=>`<option value="${escapeHtml(b.branch_code)}">${escapeHtml(b.branch_code)} — ${escapeHtml(b.branch_name||b.branch_code)}</option>`).join('');if(currentUser?.branch_code){const opt=[...sel.options].find(o=>o.value===currentUser.branch_code);if(opt)sel.value=currentUser.branch_code;}}});}
 }
 let currentExpSubTab='overview';
 function switchExpTab(sub){
@@ -1051,6 +1060,16 @@ function parseSyncFile(data,isCsv){
   _lastSyncItems=items;showSyncPreview(items);}
   catch(err){showToast('อ่านไฟล์ล้มเหลว: '+err.message,'error');}
 }
+function goToSyncStep(n){
+  [1,2,3].forEach(i=>{const p=document.getElementById('syncStep'+i+'Panel'),d=document.getElementById('syncStepDot'+i);if(p)p.style.display=i===n?'':'none';if(d){d.style.background=i===n?'var(--or)':(i<n?'var(--gn-bg)':'var(--surf2)');d.style.color=i===n?'#fff':(i<n?'var(--gn-t)':'var(--t3)');}});
+  if(n===3){
+    const it=parsedSyncData||[];const br=[...new Set(it.map(x=>x.branch).filter(Boolean))];
+    const val=it.reduce((t,x)=>t+x.deductQty*(x.cost||0),0);
+    const fmt=v=>v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    const el=document.getElementById('syncConfirmSummary');
+    if(el)el.innerHTML=`📦 จำนวน <b>${it.length}</b> รายการ<br>🏪 สาขา: <b>${escapeHtml(br.length?br.join(', '):(document.getElementById('syncBranchCode')?.value||'-'))}</b><br>💰 มูลค่าตามไฟล์ ≈ <b>฿${fmt(val)}</b><br>⚙️ โหมด: <b>${document.getElementById('skipCompareCheck')?.checked?'ตั้งค่าสต็อคใหม่ทั้งหมด':'เทียบกับสต็อคเดิม'}</b><br>🏷️ ตั้งราคาขายอัตโนมัติ: <b>${document.getElementById('autoPriceCheck')?.checked?'เปิด (+'+(document.getElementById('autoPriceMarkup')?.value||0)+'%)':'ปิด'}</b>`;
+  }
+}
 function showSyncPreview(items){
   const tb=document.getElementById('syncTableBody');parsedSyncData=items;tb.innerHTML='';
   const preview=items.slice(0,200);
@@ -1058,6 +1077,8 @@ function showSyncPreview(items){
   if(items.length>200)tb.innerHTML+=`<tr><td colspan="8" style="text-align:center;padding:10px;font-size:11px;color:var(--t3);">...และอีก ${items.length-200} รายการ</td></tr>`;
   document.getElementById('syncSummaryCount').textContent=`อ่านได้ ${items.length} รายการ — กด "ยืนยัน" เพื่ออัปเดต`;
   document.getElementById('confirmSyncBtn').disabled=false;
+  const nb=document.getElementById('syncStep2NextBtn');if(nb)nb.disabled=!items.length;
+  if(items.length>0)goToSyncStep(2);
   const detEl=document.getElementById('syncBranchDetected');
   const branchesInFile=[...new Set(items.map(it=>it.branch).filter(Boolean))];
   if(detEl){if(branchesInFile.length){detEl.style.display='';detEl.textContent=`✅ พบสาขาในไฟล์ ${branchesInFile.length} สาขา: ${branchesInFile.join(', ')} — จะใช้ค่านี้แทน dropdown ด้านบน`;}else{detEl.style.display='';detEl.style.color='var(--am-t)';detEl.textContent=`⚠️ ไม่พบคอลัมน์สาขาในไฟล์ — จะใช้สาขาที่เลือกจาก dropdown ด้านบนแทนทั้งไฟล์`;}}
